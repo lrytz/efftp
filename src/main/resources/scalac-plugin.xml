@@ -1,0 +1,4 @@
+<plugin>
+  <name>effects</name>
+  <classname>scala.tools.nsc.effects.EffectsPlugin</classname>
+</plugin>

@@ -1,0 +1,626 @@
+// the type of the first argument is pushed into the return type of the method `g`. AsSeenFrom?
+
+val o = new {
+  def f(x: Object) = new {
+    def g(y: x.type) = 0
+  }
+}
+val s = ""
+o.f(s).g(s)
+
+var b = true
+
+
+
+// lub doesn't do refinements, it discards them, the following has type Object, even if it could have type
+//   Object{def f: Object}
+// annotating the refined type manually works, though! Because Typers pushes down the expected type, and the
+// type of `if` is that expected type if it matches both branches
+
+def o                        = if (b) new { def f: List[Int] = Nil } else new { def f: (Int, Int) = (1,2) }
+def o: Object{def f: Object} = if (b) new { def f: List[Int] = Nil } else new { def f: (Int, Int) = (1,2) }
+
+
+
+
+class ann1 extends annotation.TypeConstraint
+class ann2 extends annotation.TypeConstraint
+
+// here the scala compiler just picks one of the two types, so the result has type
+//   Object{def f(x: Object): Object @ann1}
+def o = if (b) new { def f(x: Object): Object @ann1 = x } else new { def f(x: Object): Object @ann2 = x }
+
+
+
+def o = if (b) new { def f(x: Object)(y: x.type) = 0 } else new { def f(a: Object)(b: s.type) = 1 }
+
+def o = if (b) new { def f(x: Object): x.type = x } else new { def f(a: Object): a.type = a }
+def o = if (b) new { def f(x: Object): x.type = x } else new { def f(a: Object): Object = a }
+def o = if (b) new { def f(x: Object): Object = x } else new { def f(a: Object): a.type = a }
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Testing code
+
+object l {
+
+import annotation.effects._
+import annotation.effects.pc._
+import annotation.effects.state._
+
+
+
+@loc() class Var(init: Lst) {
+  var x = init
+}
+
+@loc() abstract class Lst {
+  def foreach(f: String => Unit): Unit @pure @pc(f.apply(%))
+
+  def map(f: String => String): Lst @pure @pc(f.apply(%)) = {
+    val res = new Var(Nl)
+    foreach(x => res.x = new Cns(f(x), res.x))
+
+
+    Function1[String, Unit] {
+      def apply(x$1: String): Unit @mod(res) @pc(f.apply)
+    }
+
+    res.x
+  }
+}
+
+object Nl extends Lst {
+  def foreach(f: String => Unit): Unit @pure = ()
+}
+@loc class Cns(hd: String, tl: Lst) extends Lst {
+  def foreach(f: String => Unit): Unit @pure @pc(f.apply(%)) = {
+    f(hd)
+    tl.foreach(f)
+  }
+}
+}
+
+
+
+
+
+
+object l {
+
+import annotation.effects._
+import annotation.effects.pc._
+import annotation.effects.state._
+
+@loc() class Var(init: Lst) {
+  var x = init
+}
+
+@loc() abstract class Lst {
+  def foreach(f: String => Unit): Unit @pure @pc(f.apply(%))
+
+  def map(f: String => String): Lst @pure @pc(f.apply(%)) = {
+    val res = new Var(Nl)
+    foreach(new Fun(res, f))
+    res.x
+  }
+}
+
+object Nl extends Lst {
+  def foreach(f: String => Unit): Unit @pure = ()
+}
+@loc class Cns(hd: String, tl: Lst) extends Lst {
+  def foreach(f: String => Unit): Unit @pure @pc(f.apply(%)) = {
+    f(hd)
+    tl.foreach(f)
+  }
+}
+
+@loc() class Fun(vr: Var, f: String => String) extends (String => Unit) {
+  def apply(s: String): Unit @mod(vr) @pc(f.apply(%)) = {
+    vr.x = (new Cns(f(s), vr.x))
+  }
+}
+
+}
+
+
+
+
+
+
+import annotation.effects._
+import annotation.effects.pc._
+import annotation.effects.state._
+
+import effects.colls._
+
+val l = cns(1, cns(2, cns(3, nl)))
+
+def f: Lst[Int] @infer = l.map(x => x + 1)
+
+
+
+
+
+
+import annotation.effects._
+import annotation.effects.pc._
+import annotation.effects.state._
+
+class B
+trait A {
+  def store(b: B): Unit @store(this, b)
+}
+
+def foo(a: A, b: B): Unit @infer = a.store(b)
+
+def foo(a: A, b1: B, b2: B): B @infer = {
+  var x = b1
+  def inner() = { a.store(x); x = b2 }
+  inner()
+  x
+}
+
+
+def foo(a: A, b1: B, b2: B): B @infer = {
+  var x = b1
+  def inner() = { a.store(x); x = b2 }
+  x
+}
+
+
+def foo(a: A, b1: B, b2: B): B @infer = {
+  var x = b1
+  def inner() { x = b2; a.store(x)}
+  inner()
+  x
+}
+
+
+# Bugs, Todos
+
+
+## refine annotation is propagated
+
+def f = { val foo: C @refine = new C { def f(): Unit @pure = () } ; val x: C @refine = foo ; x }
+f: (C){def f(): Unit @scala.annotation.effects.pure} @scala.annotation.effects.state.mod(state.this.any) @scala.annotation.effects.refine @scala.annotation.effects.refine @scala.annotation.effects.refine
+
+
+
+
+## support more of scala
+
+ - while / do-while loops
+ - pattern matching
+ - return statements
+ - by-name params: functions with by-name params should (probably) always be be effect polymorphic.
+   def f(a: => Int): Int @pc(a) = a
+ - varargs
+ - default arguments, effects of default getters
+ - try-catch (state effects)
+
+
+## TOP effect should only include @assign(any) if the method is not top-level
+
+or are they? it looks like
+
+
+## Case classes: synthetic methods
+
+ - companion apply should have the same effect as the constructor
+
+
+## effect cast
+
+ - need syntax for that
+
+
+## sameParam
+
+check uses of sameParam. if it's on ParamLoc (of PCLattice) or SymLoc (of StateLattice), it's not needed, they override equals.
+
+
+## local variables, envs
+
+replacing local variables with their locality in effects:
+
+   def foo(a: A, b: B, c: C) {
+     var x = b
+     def inner(): Unit @store(a, x) @assign(x, c) { a.store(x); x = c }
+     inner()
+   }
+
+The effect of the application `inner()` is `@store(a, b) @assign(x, c)`, i.e.
+the `x` in the store effect needs to be replaced!
+
+
+
+## State effects and refined types
+
+THINK ABOUT THE ISSUE in general.
+ - store, assign and loc annotations can refer to things out of scope
+ - for Function trees, the effects will refer to the arguments of the tree ("x"), but these
+   should be re-mapped to the arguments of the apply method in the refinement ("x$1")
+
+
+import annotation.effects._
+import annotation.effects.pc._
+import annotation.effects.state._
+
+abstract class A { def f(): Unit @pure }
+
+
+
+// CRASH: refined effect is @loc(x) ==> packedType creates an ExistentialType to abstract over x
+
+def foo(a: A): (Int => Int) @refine @pure @pc(a.f()) = {
+  (x: Int) => { a.f(); x }
+}
+
+
+// OK, this is what we actually wanted to test; the checker automatically infers a refined type for `f` WITH @pc(a.f()) !!
+// this can be verified by printing at pickler phase.
+
+def foo(a: A): (Int => Int) @refine @pure @pc(a.f()) = {
+  val f = (x: Int) => { a.f(); 1 }
+  f
+}
+
+
+def bar(x: Int): Int @infer = x + 1
+def bar(a: A, x: Int): Int @infer = foo(a).apply(x)
+
+
+## @infer and overriding
+
+@infer in subclass should not infer more precise than the overridden.
+
+class C { def f: Int @noEff = 1 }
+class D extends C { override def f: Int @infer = 2 }
+
+ => infers @eff, but doesn't issue an error
+
+
+## Test suite
+
+## primary constructor annotations
+ - cannot refer to arguments or `this`, not in scope
+
+
+# Tests to integrate
+
+## state effects depend on order
+
+import annotation.effects._
+import annotation.effects.pc._
+import annotation.effects.state._
+
+@loc class D { }
+
+@loc class C {
+  @local var d: D = new D
+}
+
+def f(c: C, d: D): Unit @mod(c) = {
+  c.d = new D
+}
+
+def f(c: C, d: D): Unit @store(c, d) @mod(c) = { // OK
+  c.d = new D
+  c.d = d
+}
+
+
+def f(c: C, d: D): Unit @store(c, d) @mod(c) = { // effect does not conform
+  c.d = d
+  c.d = new D
+}
+
+
+
+## PC on this
+
+import annotation.effects._
+import annotation.effects.pc._
+import annotation.effects.state._
+
+@loc abstract class C {
+  def foo(): Unit @mod(this)
+  def bar(): Unit @pc(this.foo()) @pure = foo()
+}
+
+def t(c: C): Unit @infer = c.bar()
+
+def t: Unit @infer = (new C { def foo(): Unit @mod() = () }).bar()
+def t: Unit @infer = (new C { def foo(): Unit @mod(this) = () }).bar()
+def t: Unit @infer = (new C { def foo(): Unit @mod(any) = () }).bar()
+
+
+
+## Polymorphic list, Counter, class containing a counter, factories
+
+import annotation.effects._
+import annotation.effects.pc._
+import annotation.effects.state._
+
+
+object l {
+ trait Lst[+A] {
+    def head: A @pure
+    def tail: Lst[A] @pure
+    def isEmpty: Boolean @pure
+    def map[B](f: A => B): Lst[B] @pure @pc(f.apply(%)) = {
+      if (isEmpty) Nl
+      else new Cns(f(head), tail.map(f))
+    }
+  }
+
+  @pure object Nl extends Lst[Nothing] {
+    def head: Nothing @pure = throw new Exception("head of empty list")
+    def tail: Lst[Nothing] @pure = throw new Exception("tail of empty list")
+    def isEmpty: Boolean @pure = true
+  }
+
+  @pure class Cns[+A](h: A, t: Lst[A]) extends Lst[A] {
+    def head: A @pure = h
+    def tail: Lst[A] @pure = t
+    def isEmpty: Boolean @pure = false
+  }
+}
+
+
+
+import l._
+var x = 1
+def map1: Lst[Int] @infer = Nl.map(y => { x = 2; y })
+
+val list = new Cns(1, new Cns(2, Nl))
+def map1: Lst[Int] @infer = list.map(x => x + 1)
+
+
+
+
+@infer class Counter {
+  private var i = 0
+  def inc(): Unit @mod(this) @pure = { i = i + 1 }
+  def get(): Int @pure = i
+}
+
+def f1(c: Counter): Int @infer = { c.get() }
+def f2(c: Counter): Int @infer = { c.inc(); c.get() }
+
+
+
+def map2(c: Counter): Lst[Int] @infer = list.map(x => x + c.get())
+def map3(c: Counter): Lst[Int] @infer = list.map(x => { c.inc(); x + c.get() })
+
+
+def map4(c: Counter): Lst[Int] @infer = { val d = c; list.map(x => { x + d.get() }) }
+def map5(c: Counter): Lst[Int] @infer = { val d = c; list.map(x => { d.inc(); x + d.get() }) }
+
+
+
+
+
+@infer class A {
+  @local var k: Counter = new Counter
+  def setK(arg: Counter): Unit @pure @store(this, arg) = {
+    k = arg
+  }
+  def ket(): Int @pure = k.get()
+  def ink(): Unit @mod(this) @pure = k.inc()
+}
+
+
+
+def set1(a: A): Unit @infer = { val b = a; b.setK(new Counter) }
+
+val globalCounter = new Counter
+def set2(a: A): Unit @infer = { val b = a; b.setK(globalCounter) }
+
+def kFaktory(): Counter @infer = { val c = new Counter; c.inc(); c }
+def set3(a: A): Unit @infer = { val b = a; b.setK(kFaktory()) }
+
+
+def badFaktory(): Counter @infer = { val c = new Counter; globalCounter.inc(); c }
+
+
+## simple state effects example
+
+
+import annotation.effects._
+import annotation.effects.state._
+
+def f: Int @infer = 1
+
+def g: Int @pure = f
+
+
+var x = 1
+def f(): Unit @infer = { x = 2 }
+
+
+class C { var x = 1; def read: Int @infer = x; def incr(): Unit @infer = { x = 234} }
+val c1 = new C
+
+def f1(c: C): Int @infer = c.read
+def t1: Int @infer = f1(c1)
+
+def f2(c: C): Int @infer = { c.incr(); c.read }
+def t2: Int @infer = f2(c1)
+
+
+
+## overriding with more specific effect
+
+class A { def f(): Int @eff = 0 }
+
+
+val a = new A
+val a1: A @refine = new A { override def f(): Int @infer = 1 }
+
+   val a1: A { def f(): Int @noEff }
+
+
+val f: (Int => Int) @refine = (x: Int) => 1
+
+
+def m(a: A): Int @infer = a.f()
+
+def m(a: A): Int @infer = {
+  def n: Int @infer = a.f()
+  n
+}
+
+
+
+def t: Int @infer = a.f()
+def t: Int @infer = a1.f()
+def t: Int @infer = m(a)
+def t: Int @infer = m(a1)
+
+
+def m(a: A): Int @infer = {
+  def n: Int @infer = a.f()
+  def o: Int @infer = {
+    n
+  }
+  o
+}
+
+
+// OK
+
+def m(a: A): Int @pc() @infer = {
+  def n: Int @infer = a.f()
+  n
+}
+
+
+
+
+
+## interplay: eff and xio
+
+
+def f: Int @infer = {eff(); 1}
+def f: Int @infer = {doXio(); 1}
+
+
+val f81: (Int => Int => Int) @refine = (x: Int) => (y: Int) => x
+
+val f = () => { doXio(); () => { eff(); 1 } }
+// outer: xio, noeff;  inner :noxio, eff
+
+
+abstract class C { def f: Int }
+val c: C @refine = new C { def f = 1 }   // no refinement
+val c: C @refine = new C { def f: Int @infer = 1 } // C { def f: Int @noXio @noEff }
+
+
+val x = 1
+def f: Int @pure = x
+def f: Int @noEff @noXio = x
+
+
+
+
+## exceptions
+
+
+class E1 extends Exception
+ class E11 extends E1
+ class E12 extends E1
+class E2 extends Exception
+
+val e1 = new E1
+ val e11 = new E11
+ val e12 = new E12
+val e2 = new E2
+
+
+def foo(): Int @infer = 1
+
+def foo(): Int @infer = try {
+  if (false) throw e1
+  else 1
+}
+
+def bar(): Int @infer = try {
+  foo()
+} catch {
+  case e: E1 => 3
+}
+
+def bar(): Int @infer = try {
+  foo()
+} catch {
+  case e: E2 => 3
+}
+
+
+
+## pc annotations
+
+def f(x: Int): Int @pc(x.+(2)) = x + 1
+
+def f(x: Int): Int @pc(x.+(% : Int)) = x + 1
+
+
+
+## pc polymorphism (need more annotations now with simplified pc)
+
+
+class A { def f(): Int @eff = 1 }
+class A1 extends A { override def f(): Int @noEff = 2 }
+
+def f(a: A): Int @infer = a.f()
+
+val someA = new A
+val someA1 = new A1
+
+def g(): Int @infer = f(someA)
+def g(): Int @infer = f(someA1)
+
+
+## pc forwarding (needs more annotations now with simplified pc)
+
+class A { def f(): Int @eff = 1 }
+class B extends A { override def f(): Int @noEff = 2 }
+
+def m(a: A): Int @infer = a.f()
+def n(h: A): Int @infer = m(h)
+
+
+val someA = new A
+val someB = new B
+
+def test: Int @infer = m(someA)
+def test: Int @infer = m(someB)
+def test: Int @infer = n(someA)
+def test: Int @infer = n(someB)
+
+
+def o(i: A): Int @infer = { val k = i; m(k) }
+
+
+
+## local values
+
+def f(): Int @infer = {
+  val a: (() => Int) @refine = () => 1
+  a()
+}
+
+
