@@ -1,4 +1,4 @@
-package scala.tools.nsc.eff
+package scala.tools.nsc.effects
 
 import scala.tools.nsc._
 

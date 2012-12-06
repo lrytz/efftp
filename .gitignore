@@ -1,0 +1,9 @@
+
+target/
+/ide/out/
+/lib/
+
+/src/old/
+/sandbox/
+
+*.iws

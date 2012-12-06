@@ -1,4 +1,4 @@
-package scala.tools.nsc.eff
+package scala.tools.nsc.effects
 
 import org.scalatest.FunSuite
 
@@ -30,7 +30,7 @@ class EffectLatticeSuite extends FunSuite {
 
   test("BiLattice basics") {
     import IOISL._
-    import scala.tools.nsc.eff.{IOLattice => IOL, ISLattice => ISL}
+    import scala.tools.nsc.effects.{IOLattice => IOL, ISLattice => ISL}
     assert(bottom <= top)
     assert((IOL.bottom, ISL.bottom) <= bottom)
     assert(((NoIO, s123) u (SomeIO, ISL.bottom)) <= (SomeIO,s123))
