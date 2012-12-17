@@ -12,6 +12,11 @@ trait AnnotChecker { self: EffectChecker =>
 
 
     // TODO: also need to handle relative annotations here
+    // problem: we need to add @rel annotations to all methods, we can't always look at the corresponding
+    // symbol: when comparing two types, as here, subtyping doesn't carry symbols along. subtyping is
+    // only correct when @rel annotations are there, so we need to add them. however, we want to do that
+    // probably only on completion of the symbol's type, not the first time we need to check the @rel (that
+    // might lead to cyclic refs)
 
     def annotationsConform(tpe1: Type, tpe2: Type): Boolean = {
       val default = lattice.top
@@ -23,22 +28,18 @@ trait AnnotChecker { self: EffectChecker =>
     override def assignAnnotationsToTree(defTree: Tree, typedRhs: Tree, tpe: Type): Type = defTree match {
       case DefDef(_, _, _, _, _, _) =>
         val e = domain.inferEffect(typedRhs, defTree.symbol)
-        // TODO: add effect to type
-        tpe
+        setEffectAnnotation(tpe, e)
 
       case _ =>
         tpe
     }
 
-    // todo: addannotations- copied from AnnotationTyper
-    /*
     override def addAnnotations(tree: Tree, tpe: Type): Type = {
       if (tree.isTerm)
         removeAnnotations(tpe, annotationClasses)
       else
         tpe
     }
-    */
 
     // todo: annotations-lub, annotations-glb
   }

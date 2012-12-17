@@ -24,8 +24,8 @@ abstract class BiEffectDomain extends EffectDomain {
   def fromAnnotation(annots: List[AnnotationInfo], default: => Effect): Effect =
     (d1.fromAnnotation(annots, default._1), d2.fromAnnotation(annots, default._2))
 
-  def toAnnotation(elem: Effect): List[AnnotationInfo] = {
-    d1.toAnnotation(elem._1) ++ d2.toAnnotation(elem._2)
+  def toAnnotation(eff: Effect): List[AnnotationInfo] = {
+    d1.toAnnotation(eff._1) ++ d2.toAnnotation(eff._2)
   }
 
   override def getterEffect(sym: Symbol): Effect =

@@ -18,9 +18,9 @@ abstract class IODomain extends EffectDomain {
     else if (annots.exists(_.atp.typeSymbol == noIoClass)) false
     else default
 
-  def toAnnotation(elem: Effect): List[AnnotationInfo] =
-    if (elem) List(AnnotationInfo(ioClass.tpe, Nil, Nil))
-    else      List(AnnotationInfo(noIoClass.tpe, Nil, Nil))
+  def toAnnotation(eff: Effect): List[AnnotationInfo] =
+    if (eff) List(AnnotationInfo(ioClass.tpe, Nil, Nil))
+    else     List(AnnotationInfo(noIoClass.tpe, Nil, Nil))
 
   private lazy val printNames = List("println", "print").map(newTermName(_))
   private lazy val PredefMClass = definitions.PredefModule.moduleClass

@@ -22,7 +22,7 @@ abstract class EffectDomain extends Infer {
   def fromAnnotation(annots: List[AnnotationInfo], default: => Effect): Effect
   def fromAnnotation(tpe: Type, default: => Effect): Effect = fromAnnotation(tpe.finalResultType.annotations, default)
 
-  def toAnnotation(elem: Effect): List[AnnotationInfo]
+  def toAnnotation(eff: Effect): List[AnnotationInfo]
 
   def getterEffect(sym: Symbol): Effect = lattice.bottom
   def setterEffect(sym: Symbol): Effect = lattice.bottom
