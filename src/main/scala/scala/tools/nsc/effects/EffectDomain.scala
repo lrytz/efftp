@@ -2,7 +2,7 @@ package scala.tools.nsc.effects
 
 import scala.tools.nsc._
 
-abstract class EffectDomain {
+abstract class EffectDomain extends Infer {
   // `global` should not be a class parameter. Having it a field allows to refine
   // its type, e.g. `EffectDomain { val global: some.global.type }`, which is not
   // possible for parameters.
@@ -19,15 +19,13 @@ abstract class EffectDomain {
    * Read the effect from a list of annotations. If no effect annotation for this domain
    * can be found, this method should return the `default` effect.
    */
-  def fromAnnotation(annots: List[AnnotationInfo], default: Effect): Effect
-  def fromAnnotation(tpe: Type, default: Effect): Effect = fromAnnotation(tpe.finalResultType.annotations, default)
+  def fromAnnotation(annots: List[AnnotationInfo], default: => Effect): Effect
+  def fromAnnotation(tpe: Type, default: => Effect): Effect = fromAnnotation(tpe.finalResultType.annotations, default)
 
   def toAnnotation(elem: Effect): List[AnnotationInfo]
 
   def getterEffect(sym: Symbol): Effect = lattice.bottom
   def setterEffect(sym: Symbol): Effect = lattice.bottom
-
-  def computeRhsElem(rhs: Tree, sym: Symbol): Effect
 }
 
 trait EffectLattice {

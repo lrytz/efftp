@@ -21,7 +21,7 @@ abstract class BiEffectDomain extends EffectDomain {
 
   val annotationClasses: List[Symbol] = d1.annotationClasses ++ d2.annotationClasses
 
-  def fromAnnotation(annots: List[AnnotationInfo], default: Effect): Effect =
+  def fromAnnotation(annots: List[AnnotationInfo], default: => Effect): Effect =
     (d1.fromAnnotation(annots, default._1), d2.fromAnnotation(annots, default._2))
 
   def toAnnotation(elem: Effect): List[AnnotationInfo] = {
@@ -34,8 +34,20 @@ abstract class BiEffectDomain extends EffectDomain {
   override def setterEffect(sym: Symbol): Effect =
     (d1.setterEffect(sym), d2.setterEffect(sym))
 
-  override def computeRhsElem(rhs: Tree, sym: Symbol): Effect =
-    (d1.computeRhsElem(rhs, sym), d2.computeRhsElem(rhs, sym))
+
+  override def inferEff(tree: Tree, enclFun: Symbol, set: Effect => Unit, continue: => Unit) {
+    var e1 = Option.empty[d1.lattice.Effect]
+    var e2 = Option.empty[d2.lattice.Effect]
+    d1.inferEff(tree, enclFun, e => {e1 = Some(e)}, ())
+    d2.inferEff(tree, enclFun, e => {e2 = Some(e)}, ())
+
+    (e1, e2) match {
+      case (None, None) =>
+        continue
+      case _ =>
+        set(e1.getOrElse(d1.inferEffect(tree, enclFun)), e2.getOrElse(d2.inferEffect(tree, enclFun)))
+    }
+  }
 }
 
 trait BiLattice extends EffectLattice {
