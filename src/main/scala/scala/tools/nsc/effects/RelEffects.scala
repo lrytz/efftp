@@ -19,7 +19,12 @@ trait RelEffects { self: EffectDomain =>
     } else if (sym.rawInfo.isComplete) {
       relFromAnnotation(sym.annotations)
     } else {
-      relEffects(sym.enclMethod)
+      val encl = {
+        val enclM = sym.enclMethod
+        if (enclM == sym) sym.owner.enclMethod
+        else enclM
+      }
+      relEffects(encl)
     }
 
   /**

@@ -35,11 +35,11 @@ abstract class BiEffectDomain extends EffectDomain {
     (d1.setterEffect(sym), d2.setterEffect(sym))
 
 
-  override def inferEff(tree: Tree, enclFun: Symbol, set: Effect => Unit, continue: => Unit) {
+  override def computeEffect(tree: Tree, enclFun: Symbol, set: Effect => Unit, continue: => Unit) {
     var e1 = Option.empty[d1.lattice.Effect]
     var e2 = Option.empty[d2.lattice.Effect]
-    d1.inferEff(tree, enclFun, e => {e1 = Some(e)}, ())
-    d2.inferEff(tree, enclFun, e => {e2 = Some(e)}, ())
+    d1.computeEffect(tree, enclFun, e => {e1 = Some(e)}, ())
+    d2.computeEffect(tree, enclFun, e => {e2 = Some(e)}, ())
 
     (e1, e2) match {
       case (None, None) =>

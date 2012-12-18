@@ -29,13 +29,13 @@ abstract class IODomain extends EffectDomain {
     sym.owner == PredefMClass && printNames.contains(sym.name)
   }
 
-  override def inferEff(tree: Tree, enclFun: Symbol, set: Effect => Unit, continue: => Unit) {
+  override def computeEffect(tree: Tree, enclFun: Symbol, set: Effect => Unit, continue: => Unit) {
     tree match {
       case Apply(fun, args) if isPrint(fun.symbol) =>
         set(true)
 
       case _ =>
-        super.inferEff(tree, enclFun, set, continue)
+        super.computeEffect(tree, enclFun, set, continue)
     }
   }
 }
