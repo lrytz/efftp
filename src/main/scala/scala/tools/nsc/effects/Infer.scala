@@ -5,11 +5,6 @@ trait Infer { self: EffectDomain =>
   import lattice._
 
   /**
-   * Returns the relative effects of a method
-   */
-  def relEffects(sym: Symbol): List[Symbol] = ???
-
-  /**
    * Compute the effect of some tree. Needs enclFun for effect polymorphism
    */
   final def inferEffect(tree: Tree, enclFun: Symbol): Effect = {

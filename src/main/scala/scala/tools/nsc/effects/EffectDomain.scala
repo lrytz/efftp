@@ -2,7 +2,7 @@ package scala.tools.nsc.effects
 
 import scala.tools.nsc._
 
-abstract class EffectDomain extends Infer {
+abstract class EffectDomain extends Infer with RelEffects {
   // `global` should not be a class parameter. Having it a field allows to refine
   // its type, e.g. `EffectDomain { val global: some.global.type }`, which is not
   // possible for parameters.

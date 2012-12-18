@@ -15,7 +15,12 @@ trait TypeUtils { self: EffectChecker =>
     case tp => tp
   }
 
-  def setEffectAnnotation(tp: Type, eff: Effect): Type = {
+  def setEffectAnnotation(tp: Type, eff: Effect): Type =
     removeAnnotations(tp, annotationClasses).withAnnotations(toAnnotation(eff))
-  }
+
+  def setEffectAnnotation(tp: Type, eff: Effect, rel: List[RelEffect]): Type =
+    setRelEffectAnnotations(setEffectAnnotation(tp, eff), rel)
+
+  def setRelEffectAnnotations(tp: Type, rel: List[RelEffect]): Type =
+    removeAnnotations(tp, List(relClass)).withAnnotations(relToAnnotation(rel))
 }

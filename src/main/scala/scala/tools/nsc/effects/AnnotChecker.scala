@@ -27,8 +27,10 @@ trait AnnotChecker { self: EffectChecker =>
 
     override def assignAnnotationsToTree(defTree: Tree, typedRhs: Tree, tpe: Type): Type = defTree match {
       case DefDef(_, _, _, _, _, _) =>
-        val e = domain.inferEffect(typedRhs, defTree.symbol)
-        setEffectAnnotation(tpe, e)
+        val sym = defTree.symbol
+        val e = domain.inferEffect(typedRhs, sym)
+        val rel = domain.relEffects(sym)
+        setEffectAnnotation(tpe, e, rel)
 
       case _ =>
         tpe
