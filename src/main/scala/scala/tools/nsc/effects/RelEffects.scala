@@ -20,6 +20,7 @@ trait RelEffects { self: EffectDomain =>
       relFromAnnotation(sym.annotations)
     } else {
       val encl = {
+        // for method symbols, the enclMethod is itself
         val enclM = sym.enclMethod
         if (enclM == sym) sym.owner.enclMethod
         else enclM

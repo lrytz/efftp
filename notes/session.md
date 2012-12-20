@@ -1,3 +1,21 @@
+# next up
+- Function trees, give refined types
+
+- EffectChecker that verifies effects of annotated methods, generates effect typing errors
+  => only non-inferred types...
+  => do we really need a separate traversal? why not just using addAnnotations on DefDef trees?
+   -> keep effect annotations around in tree types, where every effect annotation should describe the effect of
+      that sub-tree?
+
+- check relative effects in subtyping
+  -> still need "inferOnly"? because "annotationsConform" is called whenever there's some annotation present.
+     - when there's a return type of a defdef that has an annotation
+     - an annotated type (x: Foo @eff)
+
+- refchecks should verify that all overrides are valid - write tests
+- computeEffect: when hitting a def tree, skip (definitions don't have effects), EffectChecker.scala, line 857
+
+
 # current architecture
 
 - the current design for re-typing is flawed because it doesn't use an expected type. therefore it uses

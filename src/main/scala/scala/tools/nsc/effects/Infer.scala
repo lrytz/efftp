@@ -27,6 +27,9 @@ trait Infer { self: EffectDomain =>
    * compute the effect of a tree. called by the traverser on every sub-tree.
    * overriding this method allows concrete domains to specify the effect of
    * certain trees.
+   *
+   * TODO: continue could be "traverse: Tree => Unit", or even "traverser: Traverser"
+   * for more generality / to give more possibilities to overriding domains
    */
   def computeEffect(tree: Tree, enclFun: Symbol, set: Effect => Unit, continue: => Unit) {
     tree match {

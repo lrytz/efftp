@@ -31,7 +31,7 @@ class IOSuite extends FunSuite {
 
   val inferPrintlnEff = new { def muahaha = println() }
   test("println has effect") {
-    // comments
+    // commentssadf
     assert(isSubtype[{ def muahaha: Unit @io }](inferPrintlnEff))
   }
 }
