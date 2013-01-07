@@ -24,7 +24,8 @@ abstract class EffectChecker extends PluginComponent with Transform with AnnotCh
     new Checker //(unit)
   }
 
+  // check effects for defdefs (and functions?) which don't have inferred effects
   protected class Checker extends Transformer {
-    // check effects for defdefs (and functions?) which don't have inferred effects
+    override def transform(tree: Tree) = tree
   }
 }

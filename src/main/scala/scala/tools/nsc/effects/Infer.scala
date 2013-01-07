@@ -24,7 +24,7 @@ trait Infer { self: EffectDomain =>
   /**
    * TODO: rename
    *
-   * compute the effect of a tree. called by the traverser on every sub-tree.
+   * compute the effect of a tree. called by the EffectInfer traverser on every sub-tree.
    * overriding this method allows concrete domains to specify the effect of
    * certain trees.
    *
