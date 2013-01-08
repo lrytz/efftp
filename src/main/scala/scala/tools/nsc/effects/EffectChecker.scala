@@ -28,4 +28,13 @@ abstract class EffectChecker extends PluginComponent with Transform with AnnotCh
   protected class Checker extends Transformer {
     override def transform(tree: Tree) = tree
   }
+
+  // debugging stuff
+  def printRes[T](res: T, msg: String = ""): T = {
+    if (!msg.isEmpty) {
+      println(msg)
+    }
+    println(res)
+    res
+  }
 }

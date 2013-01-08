@@ -11,20 +11,106 @@ trait AnnotChecker { self: EffectChecker =>
 
   class EffectAnnotationChecker extends AnnotationChecker {
 
-
-    // TODO: also need to handle relative annotations here
-    // problem: we need to add @rel annotations to all methods, we can't always look at the corresponding
-      // symbol: when comparing two types, as here, subtyping doesn't carry symbols along. subtyping is
-    // only correct when @rel annotations are there, so we need to add them. however, we want to do that
-    // probably only on completion of the symbol's type, not the first time we need to check the @rel (that
-    // might lead to cyclic refs)
+    // @TODO: make sure we end up here only when checking refinements, members of types. effects of method return
+    // types for instance should not be checked here. how? maybe inspect the stack trace to get some evidence.
 
     def annotationsConform(tpe1: Type, tpe2: Type): Boolean = {
       val default = lattice.top
       val e1 = fromAnnotation(tpe1.annotations, default)
       val e2 = fromAnnotation(tpe2.annotations, default)
-      e1 <= e2
+
+      val rel1 = relFromAnnotation(tpe1.annotations)
+      val rel2 = relFromAnnotation(tpe2.annotations)
+
+      effectsConform(e1, rel1, e2, rel2)._1
     }
+
+    private def effectsConform(e1: Effect, rel1: List[RelEffect],
+                               e2: Effect, rel2: List[RelEffect],
+                               visited: Set[Symbol] = Set()): (Boolean, Set[Symbol]) = {
+      var localVisited = visited
+
+      val res = e1 <= e2 && rel1.forall(r1 => {
+        lteRel(List(r1), rel2) || {
+          r1 match {
+            case RelEffect(loc, Some(fun)) =>
+              if (localVisited(fun)) true
+              else {
+                val resTp = fun.info.finalResultType
+                val eFun = fromAnnotation(resTp.annotations, lattice.top)
+                val relFun = relFromAnnotation(resTp.annotations)
+                val (b, v) = effectsConform(eFun, relFun, e2, rel2, localVisited)
+                localVisited = v
+                b
+              }
+
+            case _ =>
+              // @TODO: here we'd need to get all methods of the type of `loc` and check if their effects conform
+              // @TODO: should issue a implementation restriction warning
+              lattice.top <= e2
+          }
+        }
+      })
+      (res, localVisited)
+    }
+
+
+    /**
+     * annotations-lub, annotations-glb, for effects in refinements: e.g. if(..) fun1 else fun2, we need
+     * lub of the fun's effects
+     *
+     * In fact, with way "lub" is written in the Scala compiler currently, it's impossible to trigger these
+     * methods. First, remember that effect annotations can only appear on return types of methods. Therefore
+     * a lub of two effects can only be triggered when computing the lub of two method types, which is only
+     * possible if the method appears in a refined type.
+     *
+     * The type of a term never has an effect annotation, so for instance in
+     *
+     *   if (cond) t1 else t2
+     *
+     * the types of t1 and t2 will not have any effect annotations - but they might be refined types with
+     * effect-annotated methods.
+     *
+     * When computing the lub, the compiler first checks if one type is a supertype of all others (elimSub) and
+     * keeps that as the resulting LUB. In this case, effect annotations are preserved.
+     *
+     * Otherwise, it triggers the actual lub computation. Without going into details of "def lub1", it seems that
+     * the scala compiler doesn't compute refinements of individual members at all, as shown by this repl transcript
+     *
+     *   scala> class A; class B
+     *   scala> if (cnd) new { def f: A = new A } else new { def f: B = new B }
+     *   res2: Object = $anon$1@9aa3f3
+     *
+     * The type of res2 is Object, even though it could be { def f: Object }
+     *
+     * Note that there's a workaround: manually giving the expected type. Then the lub computation is not triggered,
+     * instead the typer will just verify that both branches of the "if" conform to the expected type
+     *
+     *   scala> (if (cnd) new { def f: A = new A } else new { def f: B = new B }) : { def f: Object }
+     *   res3: AnyRef{def f: Object} = $anon$2@457235
+     */
+
+    override def annotationsLub(tp: Type, ts: List[Type]): Type =
+      lubOrGlb(tp, ts, joinAll, joinAllRel)
+
+    override def annotationsGlb(tp: Type, ts: List[Type]): Type =
+      lubOrGlb(tp, ts, meetAll, meetAllRel)
+
+
+    // @TODO: should only do something if there are effect annotations in "ts", the method is also triggered
+    // if there are other kinds of annotations
+    def lubOrGlb(tp: Type, ts: List[Type],
+                 combineEff: List[Effect] => Effect,
+                 combineRel: List[List[RelEffect]] => List[RelEffect]): Type = {
+      val effs = ts.map(tp => fromAnnotation(tp.annotations, lattice.top))
+      // @TODO: check if rel effects all refer to symbols of the resulting method type, i.e. if lub/glb unify the
+      // symbols for dependent method types
+      val rels = ts.map(tp => relFromAnnotation(tp.annotations))
+      val eff = combineEff(effs)
+      val rel = combineRel(rels)
+      setEffectAnnotation(tp, eff, rel)
+    }
+
 
     /**
      * We remove all effect annotations from the expected type when type-checking a tree.
@@ -49,10 +135,12 @@ trait AnnotChecker { self: EffectChecker =>
     override def addAnnotations(tree: Tree, tpe: Type): Type =
       if (tree.isTerm) tree match {
         case Function(params, body) =>
-          val enclMeth = tree.symbol.enclMethod
+          val funSym = tree.symbol
+          val enclMeth = funSym.enclMethod
           val e = domain.inferEffect(body, enclMeth)
-          // @TODO: not sure what the owner of the new refinement symbol should be (tree.symbol.enclClass)?
-          updateFunctionTypeEffect(tpe, e, tree.symbol.enclClass, tree.pos)
+          val rel = domain.relEffects(funSym)
+          // @TODO: not sure what the owner of the new refinement symbol should be (funSym.enclClass)?
+          updateFunctionTypeEffect(tpe, e, rel, funSym.enclClass, tree.pos)
 
         case _ =>
           removeAnnotations(tpe, relClass :: annotationClasses)
@@ -71,8 +159,6 @@ trait AnnotChecker { self: EffectChecker =>
         }
         tpe
       }
-
-    // todo: annotations-lub, annotations-glb
   }
 
 

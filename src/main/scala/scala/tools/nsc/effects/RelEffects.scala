@@ -31,7 +31,7 @@ trait RelEffects { self: EffectDomain =>
   /**
    * Extract the relative effect from a list of annotations
    */
-  private def relFromAnnotation(annots: List[AnnotationInfo]): List[RelEffect] = {
+  def relFromAnnotation(annots: List[AnnotationInfo]): List[RelEffect] = {
     val relAnnots = annots.filter(_.atp.typeSymbol == relClass)
     (List[RelEffect]() /: relAnnots)((eff, annot) =>
       joinRel(eff, readRelAnnot(annot))
@@ -114,6 +114,11 @@ trait RelEffects { self: EffectDomain =>
     res
   }
 
+  def joinAllRel(rels: List[RelEffect]*) = {
+    if (rels.isEmpty) Nil
+    else (rels.tail :\ rels.head)(joinRel)
+  }
+
   def meetRel(r1: List[RelEffect], r2: List[RelEffect]): List[RelEffect] = {
     var res = List[RelEffect]()
     for (e1 <- r1; e2 <- r2) {
@@ -121,6 +126,11 @@ trait RelEffects { self: EffectDomain =>
       else if (e2 <= e1) res = e2 :: res
     }
     res
+  }
+
+  def meetAllRel(rels: List[RelEffect]*) = {
+    if (rels.isEmpty) Nil
+    else (rels.tail :\ rels.head)(meetRel)
   }
 
   def lteRel(r1: List[RelEffect], r2: List[RelEffect]): Boolean = {

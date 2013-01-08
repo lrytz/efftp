@@ -72,12 +72,81 @@ class IOSuite extends FunSuite {
     def apply(x: Int): Int @noIo
   }
 
-  test("infer effects of function trees") {
-    val pureF = (x: Int) => x
-    val ioF   = (x: Int) => { println(); x }
+  type FunIo = (Int => Int) {
+    def apply(x: Int): Int @io
+  }
 
+  val pureF = (x: Int) => x
+  val ioF   = (x: Int) => { println(); x }
+
+  test("infer effects of function trees") {
     assert(isSubtype[FunPure](pureF))
     assert(!isSubtype[FunPure](ioF))
     assert(isSubtype[Int => Int](ioF))
   }
+
+  def cnd = math.random > 0.5
+
+  // lubs
+
+  test("lub via elimSub") {
+    // this doesn't actually go through "annotationsLub", because one of the types is a subtype of the other,
+    // so "def lub" in types.scala keeps the supertype by using "elimSub"
+    val ioElimSub = if (cnd) pureF else ioF
+    assert(!isSubtype[FunPure](ioElimSub))
+    assert(isSubtype[FunIo](ioElimSub))
+
+    val pureElimSub = if (cnd) (x: Int) => x else pureF
+    assert(isSubtype[FunPure](pureElimSub))
+    assert(isSubtype[FunIo](pureElimSub))
+  }
+
+  type PureF = { def f: Object @noIo }
+  type IoF   = { def f: Object @io }
+
+  test("lub doesn't go into refinement members") {
+    class A; class B
+
+    val objLub = if (cnd) new { def f: A = null } else new { def f: B = null }
+    assert(!isSubtype[IoF](objLub))
+    assert(isSubtype[Object](objLub))
+
+    val objLub2 = if (cnd) new { def f: A @io = null } else new { def f: B @noIo = null }
+    assert(!isSubtype[IoF](objLub2))
+    assert(isSubtype[Object](objLub2))
+  }
+
+  // TODO: can only check that something DOES type check, but not that something doesn't, e.g. cannot check error message in
+  //   val ptOrLub2: { def f: Object @noIo } = if (cnd) new { def f: A @io = null } else new { def f: B @noIo = null }
+  test("refinements are kept & checked if they are in the expected type") {
+    class A; class B
+
+    val ptOrLub1: { def f: Object @noIo } = if (cnd) new { def f: A @noIo = null } else new { def f: B @noIo = null }
+    assert(isSubtype[PureF](ptOrLub1))
+
+    val ptOrLub2: { def f: Object @io } = if (cnd) new { def f: A @io = null } else new { def f: B @noIo = null }
+    assert(!isSubtype[PureF](ptOrLub2))
+    assert(isSubtype[IoF](ptOrLub2))
+
+    // the test below doesn't work as expected because there's no contravariant subtyping in scala for
+    // method parameters, see next test. So the expected type with the refinement demands an apply method that takes
+    // a parameter of type `String`. The apply mehtod of `(o: Object) => o` does therefore not conform.]
+
+    /*
+    type SOFun = (String => Object) {
+      def apply(s: String): Object @noIo
+    }
+
+    val fun: SOFun = if (cnd) (s: String) => s else (o: Object) => o
+    assert(isSubtype[SOFun](fun))
+    assert(isSubtype[String => Object](fun))
+    */
+  }
+
+  // see https://groups.google.com/forum/#!topic/scala-internals/kSJLzYkmif0/discussion
+  test("scala doesn't have contra-variant subtyping for method parameters") {
+    val foo = new { def f(o: Object) = o }
+    assert(!isSubtype[{ def f(s: String): Object }](foo))
+  }
+
 }

@@ -15,14 +15,10 @@ trait TypeUtils { self: EffectChecker =>
     case tp => tp
   }
 
-  def setEffectAnnotation(tp: Type, eff: Effect): Type =
-    removeAnnotations(tp, annotationClasses).withAnnotations(toAnnotation(eff))
-
-  def setEffectAnnotation(tp: Type, eff: Effect, rel: List[RelEffect]): Type =
-    setRelEffectAnnotations(setEffectAnnotation(tp, eff), rel)
-
-  def setRelEffectAnnotations(tp: Type, rel: List[RelEffect]): Type =
-    removeAnnotations(tp, List(relClass)).withAnnotations(relToAnnotation(rel))
+  def setEffectAnnotation(tp: Type, eff: Effect, rel: List[RelEffect]): Type = {
+    val noEffs = removeAnnotations(tp, relClass :: annotationClasses)
+    noEffs.withAnnotations(toAnnotation(eff)).withAnnotations(relToAnnotation(rel))
+  }
 
   /**
    * Adds the lattice effect `eff` to the function type `funTp` by creating a new
@@ -40,7 +36,7 @@ trait TypeUtils { self: EffectChecker =>
    *
    * @TODO: do we need something else / additional for curried functions (Int => Int => Int)?
    */
-  def updateFunctionTypeEffect(funTp: Type, eff: Effect, owner: Symbol, pos: Position): Type = {
+  def updateFunctionTypeEffect(funTp: Type, eff: Effect, rel: List[RelEffect], owner: Symbol, pos: Position): Type = {
     import definitions.FunctionClass
 
     funTp match {
@@ -53,7 +49,7 @@ trait TypeUtils { self: EffectChecker =>
 
         val (argtps, List(restp)) = refArgs.splitAt(refArgs.length - 1)
         val args = method.newSyntheticValueParams(argtps)
-        val methodType = MethodType(args, updateMethodTypeEffect(restp, eff))
+        val methodType = MethodType(args, updateMethodTypeEffect(restp, eff, rel))
         method.setInfo(methodType)
 
         res
@@ -64,7 +60,7 @@ trait TypeUtils { self: EffectChecker =>
 
         // cloning the symbol / scope, so that the returned type is not == to `funTp`
         val cloned = method.cloneSymbol
-        cloned.setInfo(updateMethodTypeEffect(cloned.tpe, eff))
+        cloned.setInfo(updateMethodTypeEffect(cloned.tpe, eff, rel))
         val newDecls = newScope
         newDecls.enter(cloned)
         copyRefinedType(refType, parents, newDecls)
@@ -79,10 +75,8 @@ trait TypeUtils { self: EffectChecker =>
    * Change the annotations in the result type of (method) type `tp`. First
    * removes all annotations in `annotationClasses`, then attaches `annots`.
    */
-  private def updateMethodTypeEffect(mt: Type, eff: Effect): Type = {
-    transformResultType(mt, rt => {
-      removeAnnotations(rt, annotationClasses).withAnnotations(toAnnotation(eff))
-    })
+  private def updateMethodTypeEffect(mt: Type, eff: Effect, rel: List[RelEffect]): Type = {
+    transformResultType(mt, setEffectAnnotation(_, eff, rel))
   }
 
   /**

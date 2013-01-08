@@ -7,6 +7,16 @@
   - check inferred effect: give a tree and the expected effect
 
 
+- effect annotation on a function type's (or some other) type parameter, see what happens. should ideally also
+  fix the non-contravariant-method-parameter-subtyping problem described in IOSuite.scala
+
+- annotationsConform assumes that
+  - rel annotations are there. make sure that they are added to all method and function symbols before we can get into
+    annotationsConform
+  - computeEffect (in Infer.scala) uses encFun symbol and looks up the rel effect of the enclosing function not by the
+    annotations of that symbol, but of the next outer which is not lazy (using RelEffects.relEffects(sym))
+
+
 - Function trees, give refined types
 
 - Function: no way to specify rel effect. can specify rel effect in expected type's apply method, but that's not
