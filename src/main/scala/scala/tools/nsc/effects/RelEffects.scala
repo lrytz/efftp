@@ -12,12 +12,19 @@ trait RelEffects { self: EffectDomain =>
 
   /**
    * Returns the relative effects of a method
+   *
+   * @TODO: document difference to the method relFromAnnotation
    */
   def relEffects(sym: Symbol): List[RelEffect] =
     if (sym == NoSymbol) {
       List()
+    } else if (!sym.isMethod) {
+      abort(s"expected method when looking up relative effects, got $sym")
     } else if (sym.rawInfo.isComplete) {
-      relFromAnnotation(sym.annotations)
+      // @TODO: here we basically assume that IF the type of a method is not inferred, THEN it ALWAYS has a
+      // non lazy type. Let's hope this is the case - is there a better way to know from a symbol if its type
+      // was inferred?
+      relFromAnnotation(sym.tpe)
     } else {
       val encl = {
         // for method symbols, the enclMethod is itself
@@ -29,9 +36,10 @@ trait RelEffects { self: EffectDomain =>
     }
 
   /**
-   * Extract the relative effect from a list of annotations
+   * The relative effect of the (return type of the potential method type) `tpe`.
    */
-  def relFromAnnotation(annots: List[AnnotationInfo]): List[RelEffect] = {
+  def relFromAnnotation(tpe: Type): List[RelEffect] = {
+    val annots: List[AnnotationInfo] = tpe.finalResultType.annotations
     val relAnnots = annots.filter(_.atp.typeSymbol == relClass)
     (List[RelEffect]() /: relAnnots)((eff, annot) =>
       joinRel(eff, readRelAnnot(annot))
@@ -82,9 +90,10 @@ trait RelEffects { self: EffectDomain =>
             )
         }
       })
-      // trees need types for pickling. types should be correct, else later
-      // phases might crash (refchecks), so running typer.
-      val typedArgs = args map (typer.typed(_))
+      // trees need types for pickling. types should be correct, else later phases might crash
+      // (refchecks), so running typer. need to travel to typer phase for that, otherwise we can
+      // end up with an assertion failure ("silent mode is not available past typer")
+      val typedArgs = exitingPhase(currentRun.typerPhase){ args map (typer.typed(_)) }
       List(AnnotationInfo(relClass.tpe, typedArgs, List()))
     }
   }
@@ -134,9 +143,11 @@ trait RelEffects { self: EffectDomain =>
   }
 
   def lteRel(r1: List[RelEffect], r2: List[RelEffect]): Boolean = {
-    r1.forall(e1 => {
-      r2.exists(e2 => e1 <= e2)
-    })
+    r1.forall(lteRelOne(_, r2))
+  }
+
+  def lteRelOne(r1: RelEffect, r2: List[RelEffect]): Boolean = {
+    r2.exists(e2 => r1 <= e2)
   }
 
 

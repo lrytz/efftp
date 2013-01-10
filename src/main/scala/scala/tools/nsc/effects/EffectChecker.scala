@@ -25,10 +25,14 @@ abstract class EffectChecker extends PluginComponent with Transform with AnnotCh
   }
 
   // check effects for defdefs (and functions?) which don't have inferred effects
+  // TODO: it seems we don't actually need that transformer - methods are already checked in addAnnotations
+  // in the effect checker
   protected class Checker extends Transformer {
     override def transform(tree: Tree) = tree
   }
+}
 
+object EffectChecker {
   // debugging stuff
   def printRes[T](res: T, msg: String = ""): T = {
     if (!msg.isEmpty) {

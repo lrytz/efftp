@@ -70,10 +70,26 @@ trait Infer { self: EffectDomain =>
 
     val lat = {
       if (hasRelativeEffect(fun, relEnv)) bottom
-      else latent(sym, sym.paramss.flatten.zip(args.map(_.tpe)).toMap, relEnv)
+      else {
+        val paramLocs = sym.paramss.flatten.map(ParamLoc)
+        // @TODO: should probably add ThisLoc to the map. can the type of this ever be more specific?
+        latent(sym, paramLocs.zip(args.map(argTpeAndLoc)).toMap, relEnv)
+      }
     }
     val e = funEff u (argsEffs :\ bottom)(_ u _) u lat
     set(e)
+  }
+
+  private val argTpeAndLoc: Tree => (Type, Option[Loc]) = arg => {
+    val tp = arg.tpe
+    arg match {
+      case Ident(_) if arg.symbol.owner.isMethod =>
+        (tp, Some(ParamLoc(arg.symbol)))
+      case This(_) =>
+        (tp, Some(ThisLoc(arg.symbol)))
+      case _ =>
+        (tp, None)
+    }
   }
 
   private def decomposeApply(tree: Tree): (Tree, List[Tree], List[List[Tree]]) = {
@@ -109,22 +125,27 @@ trait Infer { self: EffectDomain =>
   }
 
 
-
-  // todo: need type of this in argtps? can the type of this ever be more specific?
-  private def latent(fun: Symbol, argtps: Map[Symbol, Type], relEnv: List[RelEffect]): Effect = {
-    val concrete = fromAnnotation(fun.annotations, top)
+  // @TODO: fixpoint computation needed (rel effects can go in circles!)?
+  // @TODO: document what happens here (in general, argtps map specifically)
+  private def latent(fun: Symbol, argtps: Map[Loc, (Type, Option[Loc])], relEnv: List[RelEffect]): Effect = {
+    val concrete = fromAnnotation(fun.info)
     val relEff = relEffects(fun)
 
-    val expandedRelEff = relEff map {r =>
-      if (relEnv.exists(envR => r <= envR)) bottom
+    val expandedRelEff = relEff map { r =>
+      if (lteRelOne(r, relEnv)) bottom
       else r match {
-        case RelEffect(ParamLoc(param), Some(fun)) if (argtps contains param) =>
-          val tp = argtps(param)
-          val funSym = tp.member(fun.name).suchThat(m => m.overriddenSymbol(fun.owner) == fun || m == fun)
-          latent(funSym, argtps, relEnv)
+        case RelEffect(paramLoc, Some(fun)) if (argtps contains paramLoc) =>
+          argtps(paramLoc) match {
+            case (tp, Some(argLoc)) if lteRelOne(RelEffect(argLoc, Some(fun)), relEnv) =>
+              // @TODO: document. if a parameter is forwarded to another method as parameter, detect rel effects
+              bottom
+            case (tp, _) =>
+              val funSym = tp.member(fun.name).suchThat(m => m.overriddenSymbol(fun.owner) == fun || m == fun)
+              latent(funSym, Map(), relEnv)
+          }
 
         case RelEffect(_, Some(fun)) =>
-          latent(fun, argtps, relEnv)
+          latent(fun, Map(), relEnv)
 
         case _ =>
           // todo: union of effects of all methods

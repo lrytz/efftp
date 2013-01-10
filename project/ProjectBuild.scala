@@ -35,6 +35,10 @@ object ProjectBuild extends Build {
   ) settings (sharedSettings: _*)
 
 
+// print trees:
+// sbt> set (scalacOptions in testsProject) += "-Xprint:typer"
+// sbt> set (scalacOptions in testsProject) += "-Yshow-trees"
+
   lazy val testsProject = Project(id = "tests", base = file("tests")) settings (
     name := "effects-tests",
 

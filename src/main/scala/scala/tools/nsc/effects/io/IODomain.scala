@@ -26,7 +26,8 @@ abstract class IODomain extends EffectDomain {
   private lazy val PredefMClass = definitions.PredefModule.moduleClass
 
   private def isPrint(sym: Symbol) = {
-    sym.owner == PredefMClass && printNames.contains(sym.name)
+    // observed NoSymbol in some situations (annotation constructor invocations)
+    sym != NoSymbol && sym.owner == PredefMClass && printNames.contains(sym.name)
   }
 
   override def computeEffect(tree: Tree, enclFun: Symbol, set: Effect => Unit, continue: => Unit) {

@@ -15,12 +15,11 @@ trait AnnotChecker { self: EffectChecker =>
     // types for instance should not be checked here. how? maybe inspect the stack trace to get some evidence.
 
     def annotationsConform(tpe1: Type, tpe2: Type): Boolean = {
-      val default = lattice.top
-      val e1 = fromAnnotation(tpe1.annotations, default)
-      val e2 = fromAnnotation(tpe2.annotations, default)
+      val e1 = fromAnnotation(tpe1)
+      val e2 = fromAnnotation(tpe2)
 
-      val rel1 = relFromAnnotation(tpe1.annotations)
-      val rel2 = relFromAnnotation(tpe2.annotations)
+      val rel1 = relFromAnnotation(tpe1)
+      val rel2 = relFromAnnotation(tpe2)
 
       effectsConform(e1, rel1, e2, rel2)._1
     }
@@ -37,8 +36,8 @@ trait AnnotChecker { self: EffectChecker =>
               if (localVisited(fun)) true
               else {
                 val resTp = fun.info.finalResultType
-                val eFun = fromAnnotation(resTp.annotations, lattice.top)
-                val relFun = relFromAnnotation(resTp.annotations)
+                val eFun = fromAnnotation(resTp)
+                val relFun = relFromAnnotation(resTp)
                 val (b, v) = effectsConform(eFun, relFun, e2, rel2, localVisited)
                 localVisited = v
                 b
@@ -102,10 +101,10 @@ trait AnnotChecker { self: EffectChecker =>
     def lubOrGlb(tp: Type, ts: List[Type],
                  combineEff: List[Effect] => Effect,
                  combineRel: List[List[RelEffect]] => List[RelEffect]): Type = {
-      val effs = ts.map(tp => fromAnnotation(tp.annotations, lattice.top))
+      val effs = ts.map(tp => fromAnnotation(tp))
       // @TODO: check if rel effects all refer to symbols of the resulting method type, i.e. if lub/glb unify the
       // symbols for dependent method types
-      val rels = ts.map(tp => relFromAnnotation(tp.annotations))
+      val rels = ts.map(tp => relFromAnnotation(tp))
       val eff = combineEff(effs)
       val rel = combineRel(rels)
       setEffectAnnotation(tp, eff, rel)
@@ -118,7 +117,7 @@ trait AnnotChecker { self: EffectChecker =>
      * @TODO: doc why, see session.md
      */
     override def annotationsPt(tree: Tree, mode: Int, pt: Type): Type = {
-      removeAnnotations(pt, annotationClasses)
+      removeAnnotations(pt, allEffectAnnots)
     }
 
     override def assignAnnotationsToTree(defTree: Tree, typedRhs: Tree, tpe: Type): Type = defTree match {
@@ -138,21 +137,36 @@ trait AnnotChecker { self: EffectChecker =>
           val funSym = tree.symbol
           val enclMeth = funSym.enclMethod
           val e = domain.inferEffect(body, enclMeth)
-          val rel = domain.relEffects(funSym)
+          val enclRel = domain.relEffects(enclMeth)
+
+          // we also compute the effect of the function body assuming there are no relative effects.
+          // if that effect is the same (smaller or equal) as the effect e, it means that the body
+          // of the function does not actually have the relative effect of the enclosing method.
+          // therefore we don't assign any relative effect to the function in that case.
+          val effectiveRel =
+            if (enclRel.isEmpty) Nil
+            else {
+              val eNoRel = domain.inferEffect(body, NoSymbol)
+              if (eNoRel <= e) Nil else enclRel
+            }
+
           // @TODO: not sure what the owner of the new refinement symbol should be (funSym.enclClass)?
-          updateFunctionTypeEffect(tpe, e, rel, funSym.enclClass, tree.pos)
+          // @TODO: should also remove effect annotations from tpe (as in the default case below)? probably yes.
+          updateFunctionTypeEffect(tpe, e, effectiveRel, funSym.enclClass, tree.pos)
 
         case _ =>
-          removeAnnotations(tpe, relClass :: annotationClasses)
+          removeAnnotations(tpe, allEffectAnnots)
 
       } else {
         tree match {
           case DefDef(_, _, _, _, tpt @ TypeTree(), rhs) if !tpt.wasEmpty =>
-            val sym = tree.symbol
-            val rhsEff = domain.inferEffect(rhs, sym)
-            val annotEff = fromAnnotation(sym.tpe.finalResultType, top)
-            if (!(rhsEff <= annotEff))
-              issueEffectError(rhs, rhsEff, annotEff)
+            if (!rhs.isErroneous) {
+              val sym = tree.symbol
+              val rhsEff = domain.inferEffect(rhs, sym)
+              val annotEff = fromAnnotation(sym.tpe)
+              if (!(rhsEff <= annotEff))
+                issueEffectError(rhs, rhsEff, annotEff)
+            }
 
           case _ =>
 

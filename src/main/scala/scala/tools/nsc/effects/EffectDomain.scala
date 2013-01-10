@@ -9,7 +9,7 @@ abstract class EffectDomain extends Infer with RelEffects {
   val global: Global
 
   val lattice: EffectLattice
-  import lattice.Effect
+  import lattice._
 
   import global._
 
@@ -20,12 +20,32 @@ abstract class EffectDomain extends Infer with RelEffects {
    * can be found, this method should return the `default` effect.
    */
   def fromAnnotation(annots: List[AnnotationInfo], default: => Effect): Effect
-  def fromAnnotation(tpe: Type, default: => Effect): Effect = fromAnnotation(tpe.finalResultType.annotations, default)
+
+  /**
+   * The effect represented by the annotations on the (return type of the potential method type) `tpe`.
+   *
+   * If there is no effect annotation for the specific domain, the default effect is used:
+   *  - `bottom` if there is a `@pure` or a `@rel(...)` annotation
+   *  - `top` otherwise
+   */
+  def fromAnnotation(tpe: Type): Effect = {
+    val annots = tpe.finalResultType.annotations
+    val hasPureOrRel = annots.exists(ann => {
+      val sym = ann.atp.typeSymbol
+      sym == pureClass || sym == relClass
+    })
+    val default = if (hasPureOrRel) bottom else top
+    fromAnnotation(annots, default)
+  }
 
   def toAnnotation(eff: Effect): List[AnnotationInfo]
 
-  def getterEffect(sym: Symbol): Effect = lattice.bottom
-  def setterEffect(sym: Symbol): Effect = lattice.bottom
+  lazy val pureClass = rootMirror.getClassByName(newTypeName("scala.annotation.effects.pure"))
+
+  lazy val allEffectAnnots = pureClass :: relClass :: annotationClasses
+
+  def getterEffect(sym: Symbol): Effect = bottom
+  def setterEffect(sym: Symbol): Effect = bottom
 }
 
 trait EffectLattice {

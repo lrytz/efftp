@@ -1,67 +1,95 @@
 # next up
 
 
-- Testing
-  - test that something compiles
-  - test that something doesn't compile with a certain error message (or, with a certain expected / found type)
-  - check inferred effect: give a tree and the expected effect
+## Testing
+
+- todo: test subtyping with relative effect
+
+- todo: tests for @pure (in a different file). combining @pure with others, @pure @rel, @pure @io, tamtamtam
+
+- check todo's in existing test suites (need neg tests)
+
+- test that something compiles
+
+- test that something doesn't compile with a certain error message (or, with a certain expected / found type)
+    - example in that direction: test that the plugin doesn't crash when there are compilation errors. one example
+      is in RelSuite, when a method is not defined, inferEffect used to crash with "NoSymbol has no owner". The fix
+      for this cannot be tested with tests that compile...
+    - two options to investigate: 1. use partest, 2. create a compiler instance and give it a fake source file
+      (triple quote). That would be much nicer in fact.
+
+- check inferred effect: give a tree and the expected effect
+
+
+## Features
+
+- getter / setter effect
+
+- constructor effects
+
+- refine the inference of a tree's effect:
+    - skip on DefDef, Function, but include ValDef's rhs effect (for non-lazy ValDefs)
 
 
 - effect annotation on a function type's (or some other) type parameter, see what happens. should ideally also
   fix the non-contravariant-method-parameter-subtyping problem described in IOSuite.scala
 
+
+
+- disable / remove annotation checker once typing is done? can probably not do that, since lazy types might
+  still get completed after typing (or maybe also not, to be seen).
+  ==> because: annotation checker stuff is called in UnCurry, Specialize, box / unbox generation, erasure,
+      mixin-generated methods, ... (e.g. addAnnotations whenever something is type-checked)
+
+- effects of annotation expressions should not be included in the effect of a tree (are they?)
+
+- "Annotated" tree should trigger effect checking if the annotated type has effect annotations
+
+- function literals need explicit parameter types when the expected type is a refined function type
+  val f: (Int => Int) { def apply(x: Int) = Int @pure } = x => x  // doesn't compile
+
+
 - annotationsConform assumes that
-  - rel annotations are there. make sure that they are added to all method and function symbols before we can get into
-    annotationsConform
-  - computeEffect (in Infer.scala) uses encFun symbol and looks up the rel effect of the enclosing function not by the
-    annotations of that symbol, but of the next outer which is not lazy (using RelEffects.relEffects(sym))
+    - rel annotations are there. make sure that they are added to all method and function symbols before we can get into
+      annotationsConform
+    - computeEffect (in Infer.scala) uses encFun symbol and looks up the rel effect of the enclosing function not by the
+      annotations of that symbol, but of the next outer which is not lazy (using RelEffects.relEffects(sym))
 
-
-- Function trees, give refined types
 
 - Function: no way to specify rel effect. can specify rel effect in expected type's apply method, but that's not
   an outer method of the function's body.
 
-- getter / setter effect
 
-- EffectChecker that verifies effects of annotated methods, generates effect typing errors
-  => only non-inferred types...
-  => do we really need a separate traversal? why not just using addAnnotations on DefDef trees?
+- add effect annotations only when necessary
+    - if there is `@pure` or `@rel(..)`, don't add `@noIo`
+    - if there is no `@pure` or `@rel(..)`, don't add `@io`
 
 
 - keep effect annotations around in tree types, where every effect annotation should describe the effect of that sub-tree?
-  + effects are already there, just need to check them
-  + in line with how type checking works
-  - lots of annotations in trees
-  - effects don't propagate like types. example: for a If(cond, tp, ep), the type checker would compute the lub
-    of the types of "tp" and "ep" => that type has an effect annotation, but it's worng. so we need to go ahead and
-    fix it (in addAnnotations).
+    + effects are already there, just need to check them
+    + in line with how type checking works
+    - lots of annotations in trees
+    - effects don't propagate like types. example: for a If(cond, tp, ep), the type checker would compute the lub
+      of the types of "tp" and "ep" => that type has an effect annotation, but it's worng. so we need to go ahead and
+      fix it (in addAnnotations).
 
 
-- expected type has annotation (DefDef, ValDef, ...)
-  > cannot use "adaptAnnotations": this is triggered when the inferred type has annotations
+- expected type should not have effect annotation (DefDef, ValDef, ...)
+    - cannot use "adaptAnnotations" to handle things: this is triggered after typing, and only when the inferred type
+      has annotations. here the expected type has annotations, not (necessarily) the inferred one
+    - we cannot use the expected type's effect annotations to check for the latent effect of a tree: only DefDefs have
+      latent effects. However, when there is (for some reason) an effect annotation on a ValDef tpt, or a parameter type,
+      then we should not issue effect errors on the corresponding tree (ValDef rhs, method argument).
+    - (we should issue warnings when there are effect annotations in places where they don't make sense, see previous point)
+    - in typed(tree, mode, pt) we don't know "where we are", if it's a rhs of a DefDef, or a ValDef, or something else.
+      So we can't distinguish if effect mismatches should be reported or not
+    - therefore we ignore effect annotations on the pt. We actually have to eliminate them because the type computed for
+      the tree will not have any annotations, and then <:< in adapt will trigger "annotationsConform" (if pt is annotated),
+      which will produce a type error.
 
-  > we cannot use the expected type's effect annotations to check for the latent effect of a tree: only DefDefs have
-    latent effects. However, when there is (for some reason) an effect annotation on a ValDef tpt, or a parameter type,
-    then we should not issue effect errors on the corresponding tree (ValDef rhs, method argument).
-
-  > (we should issue warnings when there are effect annotations in places where they don't make sense, see previous point)
-
-  > in typed(tree, mode, pt) we don't know "where we are", if it's a rhs of a DefDef, or a ValDef, or something else.
-    So we can't distinguish if effect mismatches should be reported or not
-
-  > therefore we ignore effect annotations on the pt. We actually have to eliminate them because the type computed for
-    the tree will not have any annotations, and then <:< in adapt will trigger "annotationsConform" (if pt is annotated),
-    which will produce a type error.
-
-
-
-- check relative effects in subtyping
-  -> still need "inferOnly"? because "annotationsConform" is called whenever there's some annotation present.
-     - when there's a return type of a defdef that has an annotation
-     - an annotated type (x: Foo @eff)
 
 - refchecks should verify that all overrides are valid - write tests
+
 - computeEffect: when hitting a def tree (but not a valdef!), skip (definitions don't have effects), EffectChecker.scala, line 857
 
 
