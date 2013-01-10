@@ -3,22 +3,18 @@
 
 ## Testing
 
-- todo: test subtyping with relative effect
-
-- todo: tests for @pure (in a different file). combining @pure with others, @pure @rel, @pure @io, tamtamtam
-
 - check todo's in existing test suites (need neg tests)
 
-- test that something compiles
+- testing framework: test that something compiles
 
-- test that something doesn't compile with a certain error message (or, with a certain expected / found type)
+- testing framework: test that something doesn't compile with a certain error message (or, with a certain expected / found type)
     - example in that direction: test that the plugin doesn't crash when there are compilation errors. one example
       is in RelSuite, when a method is not defined, inferEffect used to crash with "NoSymbol has no owner". The fix
       for this cannot be tested with tests that compile...
     - two options to investigate: 1. use partest, 2. create a compiler instance and give it a fake source file
       (triple quote). That would be much nicer in fact.
 
-- check inferred effect: give a tree and the expected effect
+- testing framework: check inferred effect: give a tree and the expected effect
 
 
 ## Features

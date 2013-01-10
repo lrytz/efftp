@@ -110,6 +110,47 @@ class RelSuite extends FunSuite {
     }
   }
 
+
+  test("subtyping and relative effects") {
+    def ho(f: Int => Int): Int @rel(f.apply(%)) = {
+      val f1 = () => f(10)
+
+      def t11: (() => Int) {def apply(): Int @rel(f.apply(%))} = f1
+      // @TODO: neg test
+      // this should not compile
+      // def t12: (() => Int) {def apply(): Int @noIo} = f1
+      def t13: (() => Int) {def apply(): Int @io} = f1
+
+      val f2 = () => 10
+      def t21: (() => Int) {def apply(): Int @rel(f.apply(%))} = f2
+      def t22: (() => Int) {def apply(): Int @pure} = f2
+      def t23: (() => Int) {def apply(): Int @io} = f2
+
+      0
+    }
+
+    def hm(a: A): Int @io @rel(a.foo, a.faa) = {
+      val f1 = () => a.foo
+
+      def tf1: (() => Int) {def apply(): Int @rel(a.foo, a.faa)} = f1
+      // @TODO: neg test
+      // def tf2: (() => Int) {def apply(): Int @rel(a.foo)} = f1
+      // def tf3: (() => Int) {def apply(): Int @rel()} = f1
+
+      val o1 = new { def t: Int @rel(a.foo) = a.foo }
+
+      def to1: { def t: Int @rel(a.foo, a.faa) } = o1
+      def to2: { def t: Int @rel(a.foo) } = o1
+      // @TODO: neg test
+      // def to3: { def t: Int @rel(a.faa) } = o1
+      // def to4: { def t: Int @rel() } = o1
+      def to5: { def t: Int } = o1
+
+      0
+    }
+  }
+
+
   /*
   @TODO: neg test
   The following used to crash the plugin (because the "hm(aPure)" tree is erroneous, hm doesn't exist, but

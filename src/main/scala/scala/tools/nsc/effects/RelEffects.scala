@@ -106,7 +106,7 @@ trait RelEffects { self: EffectDomain =>
       if (sameParam.isEmpty) {
         res = e2 :: others
       } else {
-        sameParam.find(_.fun.isEmpty) match {
+        res = sameParam.find(_.fun.isEmpty) match {
           case Some(e) =>
             // if there's an existing relative effect which covers all methods, take only that.
             e :: others
