@@ -120,12 +120,32 @@ trait AnnotChecker { self: EffectChecker =>
       removeAnnotations(pt, allEffectAnnots)
     }
 
-    override def assignAnnotationsToTree(defTree: Tree, typedRhs: Tree, tpe: Type): Type = defTree match {
-      case _: DefDef =>
+    /**
+     * For the `tpt` of a DefDef or ValDef, returns `true` if the tpt was empty, i.e. if
+     * the return type of the definition was inferred.
+     *
+     * @TODO: for constructor tpts this always returns `true`
+     */
+    def tptWasInferred(tpt: Tree): Boolean = tpt.isEmpty || (tpt match {
+      case tt @ TypeTree() => tt.wasEmpty
+      case _ => false
+    })
+
+    override def typeSigAnnotations(defTree: Tree, typedRhs: () => Option[Tree], tpe: Type): Type = defTree match {
+      case DefDef(_, _, _, _, tpt, _) =>
         val sym = defTree.symbol
-        val e = domain.inferEffect(typedRhs, sym)
-        val rel = domain.relEffects(sym)
-        setEffectAnnotation(tpe, e, rel)
+        if (sym.isConstructor) {
+          // @todo: handle constructors
+          val testIfInferOK = typedRhs()
+          tpe
+        } else if (tptWasInferred(tpt)) {
+          val e = domain.inferEffect(typedRhs().get, sym)
+          val rel = domain.relEffects(sym)
+          setEffectAnnotation(tpe, e, rel)
+        } else {
+          tpe
+        }
+
 
       case _ =>
         tpe
@@ -143,6 +163,9 @@ trait AnnotChecker { self: EffectChecker =>
           // if that effect is the same (smaller or equal) as the effect e, it means that the body
           // of the function does not actually have the relative effect of the enclosing method.
           // therefore we don't assign any relative effect to the function in that case.
+          //
+          // this could be improved by only keeping those rel effects that actually occur in the rhs. would
+          // require to inspect the rhs tree (or compute the absolute effect once for each relative effect)
           val effectiveRel =
             if (enclRel.isEmpty) Nil
             else {

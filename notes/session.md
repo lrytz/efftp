@@ -4,6 +4,7 @@
 ## Testing
 
 - check todo's in existing test suites (need neg tests)
+    - have a look at DirectTest in partest (https://github.com/JamesIry/scala/commit/ee0cf0faadc29652b631f19c23e78ab881968070)
 
 - testing framework: test that something compiles
 
@@ -19,17 +20,25 @@
 
 ## Features
 
+- to know if a method has an annotated type or not, we currently check if it has a lazy type. this is not correct: also
+  methods with annotated return types have a lazy type, just instead of type-checking the rhs, completion will
+  type-check the the return type tree.
+
 - getter / setter effect
 
 - constructor effects
 
+- "Annotated" tree should trigger effect checking if the annotated type has effect annotations
+
+- syntax for effect casts
+
 - refine the inference of a tree's effect:
     - skip on DefDef, Function, but include ValDef's rhs effect (for non-lazy ValDefs)
+    - effects of annotation expressions should not be included in the effect of a tree (are they?)
 
 
 - effect annotation on a function type's (or some other) type parameter, see what happens. should ideally also
   fix the non-contravariant-method-parameter-subtyping problem described in IOSuite.scala
-
 
 
 - disable / remove annotation checker once typing is done? can probably not do that, since lazy types might
@@ -37,9 +46,6 @@
   ==> because: annotation checker stuff is called in UnCurry, Specialize, box / unbox generation, erasure,
       mixin-generated methods, ... (e.g. addAnnotations whenever something is type-checked)
 
-- effects of annotation expressions should not be included in the effect of a tree (are they?)
-
-- "Annotated" tree should trigger effect checking if the annotated type has effect annotations
 
 - function literals need explicit parameter types when the expected type is a refined function type
   val f: (Int => Int) { def apply(x: Int) = Int @pure } = x => x  // doesn't compile

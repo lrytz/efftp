@@ -134,6 +134,7 @@ class RelSuite extends FunSuite {
 
       def tf1: (() => Int) {def apply(): Int @rel(a.foo, a.faa)} = f1
       // @TODO: neg test
+      // the first could compile in theory, but inference keeps either all or no relative effects for functions
       // def tf2: (() => Int) {def apply(): Int @rel(a.foo)} = f1
       // def tf3: (() => Int) {def apply(): Int @rel()} = f1
 
