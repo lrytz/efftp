@@ -1,5 +1,7 @@
 package scala.tools.nsc.effects
 
+import collection.mutable
+
 trait AnnotChecker { self: EffectChecker =>
 
   import global._
@@ -10,6 +12,23 @@ trait AnnotChecker { self: EffectChecker =>
   global.addAnnotationChecker(new EffectAnnotationChecker())
 
   class EffectAnnotationChecker extends AnnotationChecker {
+
+    // need "parser": many type completers run at parser phase (see LazyTypeRef in UnPickler), and type
+    // completion can trigger typing of arbitrary trees
+    val activePhases = List("parser", "namer", "packageobjects", "typer", "patmat", "superaccessors",
+                            "extmethods", "effectchecker", "pickler")
+
+    /**
+     * De-activate this annotation checker for phases after pickling.
+     * UnCurry for instance generates classes and type-checks them, this code can confuse the
+     * annotation checker (example: the generated class doesn't exist in the `templates` map)
+     */
+    override def runIn(phaseName: String): Boolean =
+      activePhases contains phaseName
+//      EffectChecker.printRes(activePhases contains phaseName, s"go to phase $phaseName: ")
+
+    // todo: weak map, or clear it
+    val templates: mutable.Map[Symbol, Template] = mutable.Map()
 
     // @TODO: make sure we end up here only when checking refinements, members of types. effects of method return
     // types for instance should not be checked here. how? maybe inspect the stack trace to get some evidence.
@@ -117,7 +136,7 @@ trait AnnotChecker { self: EffectChecker =>
      * @TODO: doc why, see session.md
      */
     override def annotationsPt(tree: Tree, mode: Int, pt: Type): Type = {
-      removeAnnotations(pt, allEffectAnnots)
+      removeAllEffectAnnotations(pt)
     }
 
     /**
@@ -131,24 +150,101 @@ trait AnnotChecker { self: EffectChecker =>
       case _ => false
     })
 
+    /**
+     * @TODO: document. Mention that typedRhs can either return None (for ClassDef, ModuleDef), it can just return
+     *       the tree was type-checked by computeType before, or it can actually invoke the type checker if the
+     *       ValDef / DefDef has an annotated type. In the last case, running the typer might lead to cyclic reference
+     *       errors.
+     */
     override def typeSigAnnotations(defTree: Tree, typedRhs: () => Option[Tree], tpe: Type): Type = defTree match {
       case DefDef(_, _, _, _, tpt, _) =>
         val sym = defTree.symbol
+
+        def inferEff() = domain.inferEffect(typedRhs().get, sym)
+
+        def isCaseApply          = sym.isSynthetic && sym.isCase && sym.name == nme.apply
+        def isCopy               = sym.isSynthetic && sym.name == nme.copy
+        def isCopyDefault        = sym.isSynthetic && sym.name.toString.startsWith(nme.copy.toString + nme.DEFAULT_GETTER_STRING)
+        def isCaseModuleToString = sym.isSynthetic && sym.name == nme.toString_ &&
+                                   sym.owner.isModuleClass && sym.owner.companionClass.isCaseClass
+
         if (sym.isConstructor) {
-          // @todo: handle constructors
-          val testIfInferOK = typedRhs()
-          tpe
+          val impl = templates(sym.owner)
+          val fields = impl.body collect {
+            case vd: ValDef => vd
+          }
+          val rhsE = inferEff()
+          // val e = (rhsE /: fields)((e, vd) => domain.inferEffect(vd.rhs, sym))
+          val e = (rhsE /: fields)((e, vd) => fromAnnotation(vd.symbol.info))
+          setEffectAnnotation(tpe, e, List())
+
+          // synthetic methods: apply and copy of case class
+        } else if (isCaseApply || isCopy) {
+          val e = inferEff()
+          // @TODO: should translate @rel annotations from the constructor to @rel annotations of the apply method, copy method
+          setEffectAnnotation(tpe, e, Nil)
+
+          // default getters of copy method, toString of
+        } else if (isCopyDefault || isCaseModuleToString) {
+          // toString of companion object
+          setEffectAnnotation(tpe, bottom, Nil)
+
+          // if the return type was inferred, also infer the effect
         } else if (tptWasInferred(tpt)) {
-          val e = domain.inferEffect(typedRhs().get, sym)
+          val e = inferEff()
           val rel = domain.relEffects(sym)
           setEffectAnnotation(tpe, e, rel)
+
+          // for methods with annotated return types, don't change anything
         } else {
           tpe
         }
 
+      case ValDef(_, _, tpt, _) =>
+        // @TODO: we get here multiple times for accessors: field, getter, setter, they all call typeSig on the ValDef
+        // make sure it always works. maybe optimize this case.
+        val sym = defTree.symbol
+
+        if (!sym.isLocal && tptWasInferred(tpt)) {
+          // field with inferred type: add the effect of the field initializer to the return type
+          // of the field. enables constructor effect inference.
+          val primConstr = templates(sym.owner).body.find({
+            case d: DefDef => d.symbol.isPrimaryConstructor
+          }).get.symbol
+          // relative effects of primary constructor while inferrign the effect of the field definition
+          val e = domain.inferEffect(typedRhs().get, primConstr)
+          setEffectAnnotation(tpe, e, Nil)
+
+        } else if (sym.isParamAccessor) {
+          // class parameters don't have effects. @TODO by-name params
+          setEffectAnnotation(tpe, bottom, Nil)
+
+        } else {
+          tpe
+        }
+
+      case cd: ClassDef =>
+        templates += cd.symbol -> cd.impl
+        tpe
+
+      case md: ModuleDef =>
+        templates += md.symbol.moduleClass -> md.impl
+        tpe
 
       case _ =>
         tpe
+    }
+
+    override def typeSigAccessorAnnotations(sym: Symbol, tp: Type): Type = {
+      val e = accessorEffect(sym)
+      // For the setter type, remove the effect annotation from the argument type. The reason is that the
+      // ValDef's type has an effect annotation (to make constructor effect inference work), which ends
+      // up in the parameter type here.
+      if (sym.isSetter) {
+        val MethodType(List(arg), _) = tp
+        arg.setInfo(removeAllEffectAnnotations(arg.tpe))
+      }
+      transformResultType(tp, setEffectAnnotation(_, e, Nil))
     }
 
     override def addAnnotations(tree: Tree, tpe: Type): Type =
@@ -178,7 +274,7 @@ trait AnnotChecker { self: EffectChecker =>
           updateFunctionTypeEffect(tpe, e, effectiveRel, funSym.enclClass, tree.pos)
 
         case _ =>
-          removeAnnotations(tpe, allEffectAnnots)
+          removeAllEffectAnnotations(tpe)
 
       } else {
         tree match {

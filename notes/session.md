@@ -20,13 +20,52 @@
 
 ## Features
 
+
+- effect of module initializers
+    - selecting a module should have the effect of the initializer
+
+- handle synthetics:
+    - symbol
+    - type to be assigned
+    - tree? typed tree? which tree, the one from which the synthetic is derived (ValDef for getter), or the impl
+      for the synthetic method? the latter is not always available: for getters/setters first a symbol is created
+      in namer, and the trees only in typers.
+    - "kind" to know which synthetic it is?
+
+
+- synthetics: symbol created in namer, tree created in typer
+    - field accessors: getters, setters, lazy val getters, bean getters, bean setters
+
+- syntethics created through enterSyntheticSym ==> end up in typeSig, typeSigAnnotations
+    - implicit classes: the companion implicit method
+    - default getters
+    - companoin objects (ensureCompanionObject in namers) for case classes, classes with constructor defaults, ...
+    - case classes, part 1
+        - class: copy
+        - object: apply, unapply
+        - object: toString
+
+- syntethics created only as trees during typing, no symbol generated in naming. trees only generated if no
+  manual implementation exists.
+    - case classes, part 2
+        - class: toString
+        - class: productPrefix, productArity, productElement, productIterator, canEqual
+        - class: hashCode, equals
+        - class: readResolve
+
+
+- by-name params. also for classes:
+    - class C(x: => Int) { def bar = x }; val c = new C({println("hui"); 100}); c.bar
+
+- lazy vals
+
 - to know if a method has an annotated type or not, we currently check if it has a lazy type. this is not correct: also
   methods with annotated return types have a lazy type, just instead of type-checking the rhs, completion will
   type-check the the return type tree.
 
-- getter / setter effect
 
 - constructor effects
+    - support annotating constructor effects: primary on class, auxiliary on the symbol (not the return type!)
 
 - "Annotated" tree should trigger effect checking if the annotated type has effect annotations
 
@@ -38,13 +77,8 @@
 
 
 - effect annotation on a function type's (or some other) type parameter, see what happens. should ideally also
-  fix the non-contravariant-method-parameter-subtyping problem described in IOSuite.scala
-
-
-- disable / remove annotation checker once typing is done? can probably not do that, since lazy types might
-  still get completed after typing (or maybe also not, to be seen).
-  ==> because: annotation checker stuff is called in UnCurry, Specialize, box / unbox generation, erasure,
-      mixin-generated methods, ... (e.g. addAnnotations whenever something is type-checked)
+  fix the non-contravariant-method-parameter-subtyping problem described in IOSuite.scala.
+  good: (A => B @eff) is parsed as (A => (B @eff))
 
 
 - function literals need explicit parameter types when the expected type is a refined function type
@@ -66,6 +100,11 @@
     - if there is `@pure` or `@rel(..)`, don't add `@noIo`
     - if there is no `@pure` or `@rel(..)`, don't add `@io`
 
+
+- refchecks should verify that all overrides are valid - write tests
+
+
+# older stuff
 
 - keep effect annotations around in tree types, where every effect annotation should describe the effect of that sub-tree?
     + effects are already there, just need to check them
@@ -90,16 +129,8 @@
       which will produce a type error.
 
 
-- refchecks should verify that all overrides are valid - write tests
 
-- computeEffect: when hitting a def tree (but not a valdef!), skip (definitions don't have effects), EffectChecker.scala, line 857
-
-
-
-
-
-
-# current architecture
+# old design (re-typing)
 
 - the current design for re-typing is flawed because it doesn't use an expected type. therefore it uses
   expected type "wildcard". problematic for "ptOrLub". the "ptOrLub" in typers returns "lub" if the pt is
@@ -108,7 +139,7 @@
 
 
 
-# better when doing it during typing
+## better when doing it during typing
 
 - seems good because the typer propagates some effect annotations wrongly without an annotationChecker
   enabled (lub example, the smaller type is picked, but effects are not considered without annotChecker).
@@ -118,7 +149,7 @@
 
 
 
-# problems with doing it during typing
+## problems with doing it during typing
 
 - problem: for methods / values where the type is *not* inferred (because it's annotated), the
   typer will use that annotated type for all references to the symbol.

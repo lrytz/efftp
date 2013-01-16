@@ -13,7 +13,7 @@ abstract class EffectChecker extends PluginComponent with Transform with AnnotCh
   }
 
   val phaseName: String = "effectchecker"
-  val runsAfter: List[String] = List("superaccessors")
+  val runsAfter: List[String] = List("extmethods")
 
   import global._
   import domain._
@@ -35,9 +35,7 @@ abstract class EffectChecker extends PluginComponent with Transform with AnnotCh
 object EffectChecker {
   // debugging stuff
   def printRes[T](res: T, msg: String = ""): T = {
-    if (!msg.isEmpty) {
-      println(msg)
-    }
+    print(msg)
     println(res)
     res
   }

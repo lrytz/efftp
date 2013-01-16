@@ -14,6 +14,7 @@ trait RelEffects { self: EffectDomain =>
    * Returns the relative effects of a method
    *
    * @TODO: document difference to the method relFromAnnotation
+   * @TODO: probably not correct, assumes that symbols with non-inferred types have a non-lazy type; not necessarily true AFAICS. see session.md
    */
   def relEffects(sym: Symbol): List[RelEffect] =
     if (sym == NoSymbol) {

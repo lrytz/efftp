@@ -28,12 +28,8 @@ abstract class BiEffectDomain extends EffectDomain {
     d1.toAnnotation(eff._1) ++ d2.toAnnotation(eff._2)
   }
 
-  override def getterEffect(sym: Symbol): Effect =
-    (d1.getterEffect(sym), d2.getterEffect(sym))
-
-  override def setterEffect(sym: Symbol): Effect =
-    (d1.setterEffect(sym), d2.setterEffect(sym))
-
+  override def accessorEffect(sym: Symbol): Effect =
+    (d1.accessorEffect(sym), d2.accessorEffect(sym))
 
   override def computeEffect(tree: Tree, enclFun: Symbol, set: Effect => Unit, continue: => Unit) {
     var e1 = Option.empty[d1.lattice.Effect]

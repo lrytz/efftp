@@ -15,8 +15,10 @@ trait TypeUtils { self: EffectChecker =>
     case tp => tp
   }
 
+  def removeAllEffectAnnotations(tp: Type) = removeAnnotations(tp, allEffectAnnots)
+
   def setEffectAnnotation(tp: Type, eff: Effect, rel: List[RelEffect]): Type = {
-    val noEffs = removeAnnotations(tp, relClass :: annotationClasses)
+    val noEffs = removeAllEffectAnnotations(tp)
     noEffs.withAnnotations(toAnnotation(eff)).withAnnotations(relToAnnotation(rel))
   }
 
@@ -82,7 +84,7 @@ trait TypeUtils { self: EffectChecker =>
   /**
    * Apply operation `op` on the result type of (method) type `tp`.
    */
-  private def transformResultType(tp: Type, op: Type => Type): Type = tp match {
+  def transformResultType(tp: Type, op: Type => Type): Type = tp match {
     case MethodType(args, res) => copyMethodType(tp, args, transformResultType(res, op))
     case PolyType(targs, res) => PolyType(targs, transformResultType(res, op))
     case NullaryMethodType(res) => NullaryMethodType(transformResultType(res, op))

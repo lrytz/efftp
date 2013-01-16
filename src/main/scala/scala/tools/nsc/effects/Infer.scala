@@ -32,24 +32,30 @@ trait Infer { self: EffectDomain =>
    * for more generality / to give more possibilities to overriding domains
    */
   def computeEffect(tree: Tree, enclFun: Symbol, set: Effect => Unit, continue: => Unit) {
+    val sym = tree.symbol
     tree match {
+      /** method invocations */
       case Apply(_, _) =>
         computeApplyEffect(tree, enclFun, set, continue)
 
       case TypeApply(_, _) =>
         computeApplyEffect(tree, enclFun, set, continue)
 
-      case Select(qual, _) =>
-        if (tree.symbol.isMethod)
-          computeApplyEffect(tree, enclFun, set, continue)
-        else
-          continue
+      case Select(qual, _) if sym.isMethod =>
+        computeApplyEffect(tree, enclFun, set, continue)
 
-      case Ident(_) =>
-        if (tree.symbol.isMethod) {
-          // parameterless local methods are applied using an `Ident` tree
-          computeApplyEffect(tree, enclFun, set, continue)
-        }
+      case Ident(_) if sym.isMethod =>
+        // parameterless local methods are applied using an `Ident` tree
+        computeApplyEffect(tree, enclFun, set, continue)
+
+
+      /** selection of a module has the effect of the module constructor */
+      case Select(_, _) if sym.isModule =>
+        val constr = sym.moduleClass.primaryConstructor
+        val relEnv = relEffects(enclFun)
+        latent(constr, Map(), relEnv)
+
+
       case _ =>
         continue
     }
@@ -128,31 +134,33 @@ trait Infer { self: EffectDomain =>
   // @TODO: fixpoint computation needed (rel effects can go in circles!)?
   // @TODO: document what happens here (in general, argtps map specifically)
   private def latent(fun: Symbol, argtps: Map[Loc, (Type, Option[Loc])], relEnv: List[RelEffect]): Effect = {
-    val concrete = fromAnnotation(fun.info)
-    val relEff = relEffects(fun)
+    defaultInvocationEffect(fun).getOrElse {
+      val concrete = fromAnnotation(fun.info)
+      val relEff = relEffects(fun)
 
-    val expandedRelEff = relEff map { r =>
-      if (lteRelOne(r, relEnv)) bottom
-      else r match {
-        case RelEffect(paramLoc, Some(fun)) if (argtps contains paramLoc) =>
-          argtps(paramLoc) match {
-            case (tp, Some(argLoc)) if lteRelOne(RelEffect(argLoc, Some(fun)), relEnv) =>
-              // @TODO: document. if a parameter is forwarded to another method as parameter, detect rel effects
-              bottom
-            case (tp, _) =>
-              val funSym = tp.member(fun.name).suchThat(m => m.overriddenSymbol(fun.owner) == fun || m == fun)
-              latent(funSym, Map(), relEnv)
-          }
+      val expandedRelEff = relEff map { r =>
+        if (lteRelOne(r, relEnv)) bottom
+        else r match {
+          case RelEffect(paramLoc, Some(fun)) if (argtps contains paramLoc) =>
+            argtps(paramLoc) match {
+              case (tp, Some(argLoc)) if lteRelOne(RelEffect(argLoc, Some(fun)), relEnv) =>
+                // @TODO: document. if a parameter is forwarded to another method as parameter, detect rel effects
+                bottom
+              case (tp, _) =>
+                val funSym = tp.member(fun.name).suchThat(m => m.overriddenSymbol(fun.owner) == fun || m == fun)
+                latent(funSym, Map(), relEnv)
+            }
 
-        case RelEffect(_, Some(fun)) =>
-          latent(fun, Map(), relEnv)
+          case RelEffect(_, Some(fun)) =>
+            latent(fun, Map(), relEnv)
 
-        case _ =>
-          // todo: union of effects of all methods
-          top
+          case _ =>
+            // todo: union of effects of all methods
+            top
+        }
       }
+      concrete u (expandedRelEff :\ bottom)(_ u _)
     }
-    concrete u (expandedRelEff :\ bottom)(_ u _)
   }
 
 }

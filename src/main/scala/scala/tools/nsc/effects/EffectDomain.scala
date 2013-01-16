@@ -2,7 +2,7 @@ package scala.tools.nsc.effects
 
 import scala.tools.nsc._
 
-abstract class EffectDomain extends Infer with RelEffects {
+abstract class EffectDomain extends Infer with RelEffects with DefaultEffects {
   // `global` should not be a class parameter. Having it a field allows to refine
   // its type, e.g. `EffectDomain { val global: some.global.type }`, which is not
   // possible for parameters.
@@ -44,8 +44,7 @@ abstract class EffectDomain extends Infer with RelEffects {
 
   lazy val allEffectAnnots = pureClass :: relClass :: annotationClasses
 
-  def getterEffect(sym: Symbol): Effect = bottom
-  def setterEffect(sym: Symbol): Effect = bottom
+  def accessorEffect(sym: Symbol): Effect = bottom
 }
 
 trait EffectLattice {
