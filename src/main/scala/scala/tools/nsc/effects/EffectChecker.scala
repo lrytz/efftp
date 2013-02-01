@@ -4,7 +4,7 @@ import tools.nsc.Global
 import tools.nsc.plugins.PluginComponent
 import tools.nsc.transform.{TypingTransformers, Transform}
 
-abstract class EffectChecker extends PluginComponent with Transform with AnnotChecker with TypeUtils {
+abstract class EffectChecker extends PluginComponent with Transform with TypeCheckerPlugin with TypeUtils {
 
   val global: Global
 

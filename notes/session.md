@@ -1,5 +1,22 @@
 # next up
 
+namer methodSig
+  - val tparamSyms = typer.reenterTypeParams(tparams)
+
+
+
+typedClassDef
+  - reenterTypeParams(cdef.tparams)
+  - val tparams1 = cdef.tparams mapConserve (typedTypeDef)
+  - typedTemplate
+  - add synthetic methods into template
+
+
+typedModuleDef
+  - typedTemplate
+  - add synthetics
+
+
 
 ## Testing
 

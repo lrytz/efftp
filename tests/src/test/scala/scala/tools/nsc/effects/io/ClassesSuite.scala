@@ -21,9 +21,9 @@ class ClassesSuite extends FunSuite {
 
   def toStr: String @pure = Cc.toString
 
-  def mkC: Cc @pure = Cc(1)
+//  def mkC: Cc @pure = Cc(1)
 
-  def getX: Int @pure = mkC.x
+//  def getX: Int @pure = mkC.x
 
   def testF: Int @pure = Cc.f
 

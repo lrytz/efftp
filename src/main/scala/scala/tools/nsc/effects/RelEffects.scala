@@ -94,7 +94,9 @@ trait RelEffects { self: EffectDomain =>
       // trees need types for pickling. types should be correct, else later phases might crash
       // (refchecks), so running typer. need to travel to typer phase for that, otherwise we can
       // end up with an assertion failure ("silent mode is not available past typer")
-      val typedArgs = exitingPhase(currentRun.typerPhase){ args map (typer.typed(_)) }
+      //
+      // in 2.11, replace `atPhase(currentRun.typerPhase.next)` by `exitingPhase(currentRun.typerPhase)`
+      val typedArgs = atPhase(currentRun.typerPhase.next){ args map (typer.typed(_)) }
       List(AnnotationInfo(relClass.tpe, typedArgs, List()))
     }
   }

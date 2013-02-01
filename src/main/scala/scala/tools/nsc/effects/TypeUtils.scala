@@ -77,7 +77,7 @@ trait TypeUtils { self: EffectChecker =>
    * Change the annotations in the result type of (method) type `tp`. First
    * removes all annotations in `annotationClasses`, then attaches `annots`.
    */
-  private def updateMethodTypeEffect(mt: Type, eff: Effect, rel: List[RelEffect]): Type = {
+  def updateMethodTypeEffect(mt: Type, eff: Effect, rel: List[RelEffect]): Type = {
     transformResultType(mt, setEffectAnnotation(_, eff, rel))
   }
 
