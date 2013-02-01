@@ -8,11 +8,10 @@ import scala.annotation.effects._
 class ClassesSuite extends FunSuite {
 
   case class Cc(x: Int) {
-    // should make constructor impure, but doesn't
-    println()
+    // un-commenting makes constructor impure
+//    println()
   }
   object Cc {
-    // should make constructor impure, but doesn't
     println()
     val f = 10
   }
@@ -21,9 +20,9 @@ class ClassesSuite extends FunSuite {
 
   def toStr: String @pure = Cc.toString
 
-//  def mkC: Cc @pure = Cc(1)
+  def mkC: Cc @pure = Cc(1)
 
-//  def getX: Int @pure = mkC.x
+  def getX: Int @pure = mkC.x
 
   def testF: Int @pure = Cc.f
 

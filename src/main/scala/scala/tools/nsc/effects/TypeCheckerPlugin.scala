@@ -296,7 +296,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
               val fieldEff = fromAnnotation(vd.symbol.info)
               // no need to keep effect annotations in pickled signatures of fields
               vd.symbol.modifyInfo(removeAllEffectAnnotations)
-              fieldEff
+              e u fieldEff
             })
 
             val statements = templ.body.filterNot(_.isDef)
@@ -308,12 +308,20 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             })
 
             val includeStatsEff = (includeFieldsEff /: typedStats)((e, stat) =>
-              domain.inferEffect(stat, sym) // TODO: enclosing method: the constructor sym?
+              e u domain.inferEffect(stat, sym) // TODO: enclosing method: the constructor sym?
             )
 
-            val totalEff = (includeStatsEff /: typedParents.tail)((e, parent) =>
-              fromAnnotation(parent.tpe.typeSymbol.primaryConstructor.info)
-            )
+            val totalEff = (includeStatsEff /: typedParents.tail)((e, parent) => {
+              // fromAnnotation(parent.tpe.typeSymbol.primaryConstructor.info)
+              val traitInit = parent.tpe.typeSymbol.primaryConstructor
+              val eff =
+                if (traitInit == NoSymbol) lattice.bottom
+                else {
+                  val traitInitApply = Apply(gen.mkAttributedRef(traitInit), Nil)
+                  domain.inferEffect(typer.typed(traitInitApply), sym)
+                }
+              e u eff
+            })
 
             updateMethodTypeEffect(tpe, totalEff, List())
 

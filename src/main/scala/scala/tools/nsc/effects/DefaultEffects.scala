@@ -4,14 +4,19 @@ trait DefaultEffects { self: EffectDomain =>
   import global._
   import lattice._
 
-  // some useful aliases
-  lazy val ObjectClass       = definitions.ObjectClass
-  lazy val StringClass       = definitions.StringClass
-  lazy val ScalaValueClasses = definitions.ScalaValueClasses
+  import global.{definitions => d}
+  import global.{rootMirror => m}
 
   // todo: scala.Product, scala.Equals
-
-  lazy val classesWithPureMethods: List[Symbol] = ObjectClass :: StringClass :: ScalaValueClasses
+  lazy val classesWithPureMethods: List[Symbol] = List(
+    d.ObjectClass,
+    d.StringClass,
+    d.AnyRefClass,
+    m.requiredClass[scala.Product],
+    m.requiredClass[scala.Equals],
+    d.SerializableClass
+  ) ++
+    d.ScalaValueClasses
 
   def defaultInvocationEffect(fun: Symbol): Option[Effect] = {
 //    if (fun == NoSymbol)
