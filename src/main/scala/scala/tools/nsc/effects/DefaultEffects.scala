@@ -19,9 +19,6 @@ trait DefaultEffects { self: EffectDomain =>
     d.ScalaValueClasses
 
   def defaultInvocationEffect(fun: Symbol): Option[Effect] = {
-//    if (fun == NoSymbol)
-//      None
-//    else {
     val owner = fun.owner
 
     if(classesWithPureMethods.contains(owner)) {
@@ -29,7 +26,5 @@ trait DefaultEffects { self: EffectDomain =>
     } else {
       None
     }
-//    }
-
   }
 }

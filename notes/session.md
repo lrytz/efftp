@@ -1,22 +1,14 @@
 # next up
 
-namer methodSig
-  - val tparamSyms = typer.reenterTypeParams(tparams)
+- clean uyp code / factor out stuff in pluginsTypeSig
 
+- primary constructor efffects
+  - allow annotating them
+  - detect cyclic references and report apropriate error (need effect annoatation)
 
+- relative effects with `this` receiver
 
-typedClassDef
-  - reenterTypeParams(cdef.tparams)
-  - val tparams1 = cdef.tparams mapConserve (typedTypeDef)
-  - typedTemplate
-  - add synthetic methods into template
-
-
-typedModuleDef
-  - typedTemplate
-  - add synthetics
-
-
+- work on examples towards collections
 
 ## Testing
 
@@ -40,6 +32,8 @@ typedModuleDef
 
 - effect of module initializers
     - selecting a module should have the effect of the initializer
+    - same for lazy vals
+    - similary for by-name params
 
 - handle synthetics:
     - symbol

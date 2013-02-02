@@ -9,22 +9,47 @@ trait TypeUtils { self: EffectChecker =>
   /**
    * Remove annotations with a type in `cls` from the type `tp`.
    */
-  def removeAnnotations(tp: Type, cls: List[Symbol]): Type = tp match {
+  private def removeAnnotations(tp: Type, cls: List[Symbol]): Type = tp match {
     case AnnotatedType(annots, underlying, _) =>
       underlying.withAnnotations(annots.filterNot(ann => cls.contains(ann.atp.typeSymbol)))
     case tp => tp
   }
 
-  def removeAllEffectAnnotations(tp: Type) = removeAnnotations(tp, allEffectAnnots)
-
-  def setEffectAnnotation(tp: Type, eff: Effect, rel: List[RelEffect]): Type = {
+  /**
+   * Replace all effect annotation in `tp` by the ones obtained from `eff` and `rel`.
+   */
+  private def setEffectAnnotations(tp: Type, eff: Effect, rel: List[RelEffect]): Type = {
     val noEffs = removeAllEffectAnnotations(tp)
     noEffs.withAnnotations(toAnnotation(eff)).withAnnotations(relToAnnotation(rel))
   }
 
   /**
-   * Adds the lattice effect `eff` to the function type `funTp` by creating a new
-   * (or modifying an existing) RefinementType.
+   * Apply operation `op` on the result type of (method) type `tp`.
+   */
+  private def transformResultType(tp: Type, op: Type => Type): Type = tp match {
+    case MethodType(args, res) => copyMethodType(tp, args, transformResultType(res, op))
+    case PolyType(targs, res) => PolyType(targs, transformResultType(res, op))
+    case NullaryMethodType(res) => NullaryMethodType(transformResultType(res, op))
+    case tp => op(tp)
+  }
+
+  /**
+   * Remove all effect annotations from `tp`, or from its result type if it is a method type.
+   */
+  def removeAllEffectAnnotations(tp: Type) = {
+    transformResultType(tp, removeAnnotations(_, allEffectAnnots))
+  }
+
+  /**
+   * Set the effect of of (method) type `tp` by adding annotations to its result type.
+   */
+  def setEffect(mt: Type, eff: Effect, rel: List[RelEffect]): Type = {
+    transformResultType(mt, setEffectAnnotations(_, eff, rel))
+  }
+
+  /**
+   * Adds the effect `eff` to the function type `funTp` by creating a new (or modifying
+   * an existing) RefinementType.
    *
    * Example:
    *  funTp : () => Int
@@ -38,7 +63,7 @@ trait TypeUtils { self: EffectChecker =>
    *
    * @TODO: do we need something else / additional for curried functions (Int => Int => Int)?
    */
-  def updateFunctionTypeEffect(funTp: Type, eff: Effect, rel: List[RelEffect], owner: Symbol, pos: Position): Type = {
+  def setFunctionTypeEffect(funTp: Type, eff: Effect, rel: List[RelEffect], owner: Symbol, pos: Position): Type = {
     import definitions.FunctionClass
 
     funTp match {
@@ -51,7 +76,7 @@ trait TypeUtils { self: EffectChecker =>
 
         val (argtps, List(restp)) = refArgs.splitAt(refArgs.length - 1)
         val args = method.newSyntheticValueParams(argtps)
-        val methodType = MethodType(args, updateMethodTypeEffect(restp, eff, rel))
+        val methodType = MethodType(args, setEffect(restp, eff, rel))
         method.setInfo(methodType)
 
         res
@@ -62,7 +87,7 @@ trait TypeUtils { self: EffectChecker =>
 
         // cloning the symbol / scope, so that the returned type is not == to `funTp`
         val cloned = method.cloneSymbol
-        cloned.setInfo(updateMethodTypeEffect(cloned.tpe, eff, rel))
+        cloned.setInfo(setEffect(cloned.tpe, eff, rel))
         val newDecls = newScope
         newDecls.enter(cloned)
         copyRefinedType(refType, parents, newDecls)
@@ -71,24 +96,4 @@ trait TypeUtils { self: EffectChecker =>
         abort("Function tree with unexpecte type " + t)
     }
   }
-
-
-  /**
-   * Change the annotations in the result type of (method) type `tp`. First
-   * removes all annotations in `annotationClasses`, then attaches `annots`.
-   */
-  def updateMethodTypeEffect(mt: Type, eff: Effect, rel: List[RelEffect]): Type = {
-    transformResultType(mt, setEffectAnnotation(_, eff, rel))
-  }
-
-  /**
-   * Apply operation `op` on the result type of (method) type `tp`.
-   */
-  def transformResultType(tp: Type, op: Type => Type): Type = tp match {
-    case MethodType(args, res) => copyMethodType(tp, args, transformResultType(res, op))
-    case PolyType(targs, res) => PolyType(targs, transformResultType(res, op))
-    case NullaryMethodType(res) => NullaryMethodType(transformResultType(res, op))
-    case tp => op(tp)
-  }
-
 }

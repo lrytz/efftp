@@ -43,7 +43,10 @@ class ClassesSuite extends FunSuite {
     def incr(): Unit @pure = { vf = vf + 10 }
 
     // makes the constructor non-pure
-    // val fold = computeInt()
+//    val fold = computeInt()
+
+    // also makes constr impure
+//    println()
 
     def readField = field
   }
