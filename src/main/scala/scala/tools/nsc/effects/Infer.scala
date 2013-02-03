@@ -8,9 +8,12 @@ trait Infer { self: EffectDomain =>
    * Compute the effect of some tree. Needs enclFun for effect polymorphism
    */
   final def inferEffect(tree: Tree, enclFun: Symbol): Effect = {
-    val infer = new EffectInfer(enclFun)
-    infer.traverse(tree)
-    infer.effect
+    if (tree.isErroneous) { bottom }
+    else {
+      val infer = new EffectInfer(enclFun)
+      infer.traverse(tree)
+      infer.effect
+    }
   }
 
   private class EffectInfer(enclFun: Symbol) extends Traverser {

@@ -7,6 +7,22 @@ import scala.annotation.effects._
 
 class ClassesSuite extends FunSuite {
 
+  class K {
+    // error has additional message "type error occured during effect inference"
+//    val y: K = ""
+
+    // illegal cyclic reference, reported error says "need to annotate constructor effect"
+    //    val x: K = new K
+
+    // reported error says "constructor needs effect annotation"
+//    val z = new K
+
+  }
+
+//  def mK: K @pure = new K
+
+  /*
+
   case class Cc(x: Int) {
     // un-commenting makes constructor impure
 //    println()
@@ -60,4 +76,5 @@ class ClassesSuite extends FunSuite {
 //    val t1 = new { def makeA = new A }
 //    assert(isSubtype[{def makeA: A @pure}](t1))
 //  }
+  */
 }
