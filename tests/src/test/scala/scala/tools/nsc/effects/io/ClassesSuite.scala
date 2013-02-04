@@ -7,22 +7,54 @@ import scala.annotation.effects._
 
 class ClassesSuite extends FunSuite {
 
+
+  @pure
+  trait T {
+    val x = 1
+//    println()
+  }
+
+//  def f: T @pure = new T {}
+
+
+  @pure
+  class C extends T {
+    val y = 2
+  }
+
+  def gg: C @pure = new C
+
+/*
   class K {
+    val a = 3
     // error has additional message "type error occured during effect inference"
 //    val y: K = ""
 
     // illegal cyclic reference, reported error says "need to annotate constructor effect"
-    //    val x: K = new K
+//    val x: K = new K()
+
+    // secondary constructor *always* needs effect annotation: the self constructor invocation always
+    // goes through overloading resolution which forces the type of each alternative - including the
+    // one that we're currently type checking.
+    def this(x: Int) {
+      this()
+//      println()
+    }
 
     // reported error says "constructor needs effect annotation"
-//    val z = new K
+//    val z = new K()
 
   }
 
-//  def mK: K @pure = new K
+  def mK: K @pure = new K()
+  def mk2: K @pure = new K(1)
+*/
+
+
+
+
 
   /*
-
   case class Cc(x: Int) {
     // un-commenting makes constructor impure
 //    println()

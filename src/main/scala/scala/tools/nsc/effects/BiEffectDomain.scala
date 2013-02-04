@@ -21,8 +21,8 @@ abstract class BiEffectDomain extends EffectDomain {
 
   val annotationClasses: List[Symbol] = d1.annotationClasses ++ d2.annotationClasses
 
-  def fromAnnotation(annots: List[AnnotationInfo], default: => Effect): Effect =
-    (d1.fromAnnotation(annots, default._1), d2.fromAnnotation(annots, default._2))
+  def parseAnnotationInfos(annots: List[AnnotationInfo], default: => Effect): Effect =
+    (d1.parseAnnotationInfos(annots, default._1), d2.parseAnnotationInfos(annots, default._2))
 
   def toAnnotation(eff: Effect): List[AnnotationInfo] = {
     d1.toAnnotation(eff._1) ++ d2.toAnnotation(eff._2)

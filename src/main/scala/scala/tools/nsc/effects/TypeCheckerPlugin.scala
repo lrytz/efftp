@@ -149,13 +149,84 @@ trait TypeCheckerPlugin { self: EffectChecker =>
     /**
      * For the `tpt` of a DefDef or ValDef, returns `true` if the tpt was empty, i.e. if
      * the return type of the definition was inferred.
-     *
-     * @TODO: for constructor tpts this always returns `true`
      */
     def tptWasInferred(tpt: Tree): Boolean = tpt.isEmpty || (tpt match {
       case tt @ TypeTree() => tt.wasEmpty
       case _ => false
     })
+
+    def annotatedConstrEffect(constrSym: Symbol): Option[Effect] = {
+      val annotatedSym = if (constrSym.isPrimaryConstructor) {
+        val clazz = constrSym.owner
+        if (clazz.isModuleClass) clazz.sourceModule else clazz
+      } else constrSym
+      if (symHasEffectAnnotations(annotatedSym)) Some(fromSymAnnotation(annotatedSym))
+      else None
+    }
+
+    /**
+     * Returns the effect of a primary constructor, composed of the effects of the `constrBody`,
+     * the field initializers and the statements in `tpl`.
+     *
+     * @param constrBody   The body of the primary constructor, can be typed or not
+     * @param defTyper     The typer for the constructor body, only used if it is not yet typed
+     * @param templ        The template, can be typed or not
+     * @param templTyper   Typer for the template, only used if it is not yet typed
+     * @param typedParents The typed parent trees of the template
+     * @param alreadyTyped A flag indicating if `body` and `templ` are already typed or not
+     */
+    def inferPrimaryConstrEff(constrSym: Symbol, constrBody: Tree, defTyper: Typer, templ: Template,
+                              templTyper: Typer, typedParents: List[Tree], alreadyTyped: Boolean): Effect = {
+      val typedConstrBody =
+        if (alreadyTyped) constrBody
+        else typeCheckRhs(constrBody, defTyper, WildcardType)
+
+      // @TODO: constrSym as enclosing method?
+      val rhsE = domain.inferEffect(typedConstrBody, constrSym)
+
+      val fields = templ.body collect {
+        case vd: ValDef if !(vd.symbol.isParamAccessor || vd.symbol.isEarlyInitialized) => vd
+      }
+      val includeFieldsEff = (rhsE /: fields)((e, vd) => {
+        val typedFieldRhs =
+          if (alreadyTyped) vd.rhs
+          else {
+            val fieldTyper = analyzer.newTyper(templTyper.context.makeNewScope(vd, vd.symbol))
+            typeCheckRhs(vd.rhs, fieldTyper, vd.symbol.tpe)
+          }
+        val fieldEff = domain.inferEffect(typedFieldRhs, constrSym)
+        e u fieldEff
+      })
+
+      val statements = templ.body.filterNot(_.isDef)
+      val typedStats =
+        if (alreadyTyped) statements
+        else {
+          val statsOwner = templ.symbol orElse constrSym.owner.newLocalDummy(templ.pos)
+          // TODO: would need to handle imports within the class, see typedStats
+          statements.map(stat => {
+            val localTyper = analyzer.newTyper(templTyper.context.make(stat, statsOwner))
+            localTyper.typed(stat)
+          })
+        }
+
+      val includeStatsEff = (includeFieldsEff /: typedStats)((e, stat) =>
+        e u domain.inferEffect(stat, constrSym) // TODO: enclosing method: the constructor sym?
+      )
+
+      val totalEff = (includeStatsEff /: typedParents.tail)((e, parent) => {
+        // fromAnnotation(parent.tpe.typeSymbol.primaryConstructor.info)
+        val traitInit = parent.tpe.typeSymbol.primaryConstructor
+        val eff =
+          if (traitInit == NoSymbol) lattice.bottom
+          else {
+            val traitInitApply = Apply(gen.mkAttributedRef(traitInit), Nil)
+            domain.inferEffect(defTyper.typed(traitInitApply), constrSym)
+          }
+        e u eff
+      })
+      totalEff
+    }
 
     /**
      * Primary constructors get a very special treatment in parsing, naming and typing. Here's an example:
@@ -233,83 +304,52 @@ trait TypeCheckerPlugin { self: EffectChecker =>
      */
     private def primaryConstrEff(ddef: DefDef, defTyper: Typer): Effect = {
       val constrSym = ddef.symbol
-      /* For the primary constructor, we have to include effects from the template:
-       *  - constructor body
-       *    - we have to type check everything (that also type checks early definitions)
-       *    - we have to replace the `pendingSuperCall` by a real super call like in typedTemplate
-       *  - fields: the effect of their rhs is added to the return type (see `case ValDef` below)
-       *  - early initializer fields: discard them (see constructor body)
-       *  - statements in the template: type check them and compute their effects
-       *  - effects of trait parent constructors
-       */
-      val (templ, templateTyper) = templates(constrSym.owner)
 
-      def enterTplSyms() {
-        val self1 = templ.self match {
-          case vd @ ValDef(_, _, tpt, EmptyTree) =>
-            val tpt1 = treeCopy.TypeTree(tpt).setOriginal(tpt) setType vd.symbol.tpe
-            copyValDef(vd)(tpt = tpt1, rhs = EmptyTree) setType NoType
-        }
-        if (self1.name != nme.WILDCARD)
-          templateTyper.context.scope enter self1.symbol
-        templateTyper.namer.enterSyms(templ.body)
-      }
-      enterTplSyms()
+      def inferConstrEff: Effect = {
 
-      val typedParents = analyzer.newTyper(templateTyper.context.outer).parentTypes(templ)
+        /* For the primary constructor, we have to include effects from the template:
+         *  - constructor body
+         *    - we have to type check everything (that also type checks early definitions)
+         *    - we have to replace the `pendingSuperCall` by a real super call like in typedTemplate
+         *  - fields: the effect of their rhs is added to the return type (see `case ValDef` below)
+         *  - early initializer fields: discard them (see constructor body)
+         *  - statements in the template: type check them and compute their effects
+         *  - effects of trait parent constructors
+         */
+        val (templ, templateTyper) = templates(constrSym.owner)
 
-      val constrBody = ddef.rhs match {
-        case Block(earlyVals :+ global.pendingSuperCall, unit) =>
-          val argss = analyzer.superArgs(typedParents.head) getOrElse Nil
-          Block(earlyVals :+ PrimarySuperCall(argss), unit)
-        case rhs => rhs
-      }
-
-      // @TODO: constrSym as enclosing method?
-      val rhsE = valOrDefDefEffect(constrBody, defTyper, WildcardType, constrSym)
-
-      val fields = templ.body collect {
-        case vd: ValDef if !(vd.symbol.isParamAccessor || vd.symbol.isEarlyInitialized) => vd
-      }
-      val includeFieldsEff = (rhsE /: fields)((e, vd) => {
-        val fieldTyper = analyzer.newTyper(templateTyper.context.makeNewScope(vd, vd.symbol))
-        val fieldEff = valOrDefDefEffect(vd.rhs, fieldTyper, vd.symbol.tpe, constrSym)
-        /*
-        val fieldEff = fromAnnotation(vd.symbol.info)
-        // no need to keep effect annotations in pickled signatures of fields
-        vd.symbol.modifyInfo(removeAllEffectAnnotations)
-        */
-        e u fieldEff
-      })
-
-      val statements = templ.body.filterNot(_.isDef)
-      val statsOwner = templ.symbol orElse constrSym.owner.newLocalDummy(templ.pos)
-      // TODO: would need to handle imports within the class, see typedStats
-      val typedStats = statements.map(stat => {
-        val localTyper = analyzer.newTyper(templateTyper.context.make(stat, statsOwner))
-        localTyper.typed(stat)
-      })
-
-      val includeStatsEff = (includeFieldsEff /: typedStats)((e, stat) =>
-        e u domain.inferEffect(stat, constrSym) // TODO: enclosing method: the constructor sym?
-      )
-
-      val totalEff = (includeStatsEff /: typedParents.tail)((e, parent) => {
-        // fromAnnotation(parent.tpe.typeSymbol.primaryConstructor.info)
-        val traitInit = parent.tpe.typeSymbol.primaryConstructor
-        val eff =
-          if (traitInit == NoSymbol) lattice.bottom
-          else {
-            val traitInitApply = Apply(gen.mkAttributedRef(traitInit), Nil)
-            domain.inferEffect(defTyper.typed(traitInitApply), constrSym)
+        def enterTplSyms() {
+          val self1 = templ.self match {
+            case vd @ ValDef(_, _, tpt, EmptyTree) =>
+              val tpt1 = treeCopy.TypeTree(tpt).setOriginal(tpt) setType vd.symbol.tpe
+              copyValDef(vd)(tpt = tpt1, rhs = EmptyTree) setType NoType
           }
-        e u eff
-      })
-      totalEff
+          if (self1.name != nme.WILDCARD)
+            templateTyper.context.scope enter self1.symbol
+          templateTyper.namer.enterSyms(templ.body)
+        }
+        enterTplSyms()
+
+        val typedParents = analyzer.newTyper(templateTyper.context.outer).parentTypes(templ)
+
+        val constrBody = ddef.rhs match {
+          case Block(earlyVals :+ global.pendingSuperCall, unit) =>
+            val argss = analyzer.superArgs(typedParents.head) getOrElse Nil
+            Block(earlyVals :+ PrimarySuperCall(argss), unit)
+          case rhs => rhs
+        }
+        inferPrimaryConstrEff(constrSym, constrBody, defTyper, templ, templateTyper, typedParents, alreadyTyped = false)
+      }
+
+
+      annotatedConstrEffect(constrSym).getOrElse {
+        // @TODO: maybe have an @infer annotation an infer the constructor effect only if that one is present?
+        inferConstrEff
+      }
     }
 
     /**
-     * Compute the effect of an untyped `rhs` of a DefDef or ValDef.
+     * Return the typed `rhs` of a DefDef or ValDef.
      *
      * `pt` needs to be a by-name parameter so that its computation is executed within the `silent` context.
      * Example:
@@ -319,35 +359,32 @@ trait TypeCheckerPlugin { self: EffectChecker =>
      *   - compute type of primary constructor of C, so
      *   - compute the effect of constructor C, so
      *   - compute the effect of the field initializers within C, so
-     *   - call `valOrDefDefEffect` for rhs of `x`
+     *   - call `typeCheckRhs` for rhs of `x`
      *
-     * The expected type for that `valOrDefDefEffect` is `xSymbol.tpe`, which triggers a cyclic reference
+     * The expected type for that `typeCheckRhs` invocation is `xSymbol.tpe`, which triggers a cyclic reference
      * error. By having `pt` a by-name parameter, the cyclic reference is caught and we report a useful error
      * message ("constructor needs effect annotation").
      */
-    private def valOrDefDefEffect(untypedRhs: Tree, rhsTyper: Typer, pt: => Type, enclMethod: Symbol): Effect = {
-      val typedRhs = analyzer.transformed.getOrElseUpdate(untypedRhs, {
+    private def typeCheckRhs(rhs: Tree, rhsTyper: Typer, pt: => Type): Tree = {
+      analyzer.transformed.getOrElseUpdate(rhs, {
         try {
-          rhsTyper.silent(_.typed(untypedRhs, pt)) match {
+          rhsTyper.silent(_.typed(rhs, pt)) match {
             case SilentResultValue(t) => t
             case SilentTypeError(e) =>
               val msg = e.errMsg + "\nType error occured while type checking a tree for effect inference."
               issueTypeError(changeErrorMessage(e, msg))(rhsTyper.context)
-              setError(untypedRhs)
+              setError(rhs)
           }
         }
         catch {
           case CyclicReference(sym, info) =>
             val msg = s"Cyclic reference involving $sym.\n" +
-                      s"This error occured while inferring the effect of $sym, the effect needs to be annotated.\n" +
-                      s"If this error is reported at a field, the primary constructor needs an effect annotation."
-            issueNormalTypeError(untypedRhs, msg)(rhsTyper.context)
-            setError(untypedRhs)
-          case ex =>
-            throw ex
+              s"This error occured while inferring the effect of $sym, the effect needs to be annotated.\n" +
+              s"If this error is reported at a field, the primary constructor needs an effect annotation."
+            issueNormalTypeError(rhs, msg)(rhsTyper.context)
+            setError(rhs)
         }
       })
-      domain.inferEffect(typedRhs, enclMethod)
     }
 
     /**
@@ -359,28 +396,39 @@ trait TypeCheckerPlugin { self: EffectChecker =>
         case ddef @ DefDef(_, _, _, _, tpt, rhs) =>
           val sym = defTree.symbol
 
-          def inferMethodEff(rhs: Tree = rhs, pt: Type = pt) = valOrDefDefEffect(rhs, typer, pt, sym)
+          def inferMethodEff(rhs: Tree = rhs, pt: Type = pt) = {
+            val typedRhs = typeCheckRhs(rhs, typer, pt)
+            domain.inferEffect(typedRhs, sym)
+          }
 
           def isCaseApply          = sym.isSynthetic && sym.isCase && sym.name == nme.apply
           def isCopy               = sym.isSynthetic && sym.name == nme.copy
-          def isCopyDefault        = sym.isSynthetic && sym.name.toString.startsWith(nme.copy.toString + nme.DEFAULT_GETTER_STRING)
+          def isCopyDefault        = sym.isSynthetic &&
+                                     sym.name.toString.startsWith(nme.copy.toString + nme.DEFAULT_GETTER_STRING)
           def isCaseModuleToString = sym.isSynthetic && sym.name == nme.toString_ &&
-            sym.owner.isModuleClass && sym.owner.companionClass.isCaseClass
+                                     sym.owner.isModuleClass && sym.owner.companionClass.isCaseClass
 
           if (sym.isPrimaryConstructor) {
             setEffect(tpe, primaryConstrEff(ddef, typer), List())
 
           } else if (sym.isConstructor) {
-            /* Auxiliary constructors are handled just like ordinary methods. Just need to use WildcardType
+            /* Auxiliary constructors effects are inferred just like ordinary methods. Just need to use WildcardType
              * to type check the body, not pt (which is the class type).
              */
-            val rhsE = inferMethodEff(pt = WildcardType)
+            val rhsE = annotatedConstrEffect(sym).getOrElse {
+              // Hack, but YEAH. This allows effect inference for auxiliary constructors. `tpt.tpe` is the correct
+              // return type for the constructor (without effect annotations). Having a non-lazy type prevents a cyclic
+              // reference when resolving the correct overload of the self-constructor-invocation. Since auxiliary
+              // constructors can only call earlier ones, this is safe. Nobody will observe the temporary type.
+              sym.setInfo(tpt.tpe)
+              inferMethodEff(pt = WildcardType)
+            }
             setEffect(tpe, rhsE, List()) // TODO: relative effects?
 
           } else if (isCaseApply || isCopy) {
             // synthetic methods: apply and copy of case class
             val e = inferMethodEff()
-            // @TODO: should translate @rel annotations from the constructor to @rel annotations of the apply method, copy method
+            // @TODO: should translate @rel annotations from the constructor to @rel on the apply method, copy methods
             setEffect(tpe, e, Nil)
 
           } else if (isCopyDefault || isCaseModuleToString) {
@@ -395,29 +443,10 @@ trait TypeCheckerPlugin { self: EffectChecker =>
 
           } else {
             // for methods with annotated return types, don't change anything
+            // @TODO: in case there is no effect annotation on tpe, should we add the default effect (top)?
+            // things work either way, but it would be better for documentation.
             tpe
           }
-
-          /*
-        case ValDef(_, _, tpt, rhs) =>
-          // @TODO: we get here multiple times for accessors: field, getter, setter, they all call typeSig on the ValDef
-          // make sure it always works. maybe optimize this case.
-          val sym = defTree.symbol
-
-          if (!sym.isLocal && tptWasInferred(tpt)) {
-            // field with inferred type: add the effect of the field initializer to the return type
-            // of the field. enables constructor effect inference.
-            val primConstr = templates(sym.owner)._1.body.find({
-              case d: DefDef => d.symbol.isPrimaryConstructor
-            }).get.symbol
-            // relative effects of primary constructor while inferrign the effect of the field definition
-            val e = valOrDefDefEffect(rhs, typer, pt, primConstr)
-            setEffect(tpe, e, Nil)
-
-          } else {
-            tpe
-          }
-          */
 
         case impl: Template =>
           // typer.context.owner is the class symbol for ClassDefs, the moduleClassSymbol for ModuleDefs
@@ -472,28 +501,60 @@ trait TypeCheckerPlugin { self: EffectChecker =>
 
       } else {
         tree match {
-          case DefDef(_, _, _, _, tpt @ TypeTree(), rhs) if !tpt.wasEmpty =>
-            if (!rhs.isErroneous) {
-              val sym = tree.symbol
-              val rhsEff = domain.inferEffect(rhs, sym)
-              val annotEff = fromAnnotation(sym.tpe)
-              if (!(rhsEff <= annotEff))
-                issueEffectError(rhs, rhsEff, annotEff, typer.context)
+          case DefDef(_, _, _, _, tpt @ TypeTree(), rhs) if !rhs.isErroneous =>
+            val meth = tree.symbol
+
+            val expectedEffect: Option[Effect] = {
+              if (meth.isPrimaryConstructor)
+                None // primary constr effes are checked after typing the template signature
+              if (meth.isConstructor && symHasEffectAnnotations(meth))
+                Some(fromSymAnnotation(meth))
+              else if (!tpt.wasEmpty)
+                Some(fromAnnotation(meth.tpe))
+              else
+                None
             }
 
-          case _ =>
+            expectedEffect foreach (annotEff => {
+              val rhsEff = domain.inferEffect(rhs, meth)
+              reportIfEffectsMismatch(annotEff, rhsEff, rhs, typer.context)
+            })
 
+          case _: ClassDef | _: ModuleDef =>
+            val templ = tree match {
+              case cd: ClassDef => cd.impl
+              case md: ModuleDef => md.impl
+            }
+
+            treeInfo.firstConstructor(templ.body) match {
+              case constrDef: DefDef =>
+                val constrSym = constrDef.symbol
+                for (annotEff <- annotatedConstrEffect(constrSym)) {
+                  // the `typer` we pass as typer for `rhs` / `templ` does not have the correct context, but that
+                  // doesn't matter. the trees are already typed, `typer` won't be used.
+                  val constrEff = inferPrimaryConstrEff(constrSym, constrDef.rhs, typer, templ, typer, templ.parents, alreadyTyped = true)
+                  val msg = "The effect of the primary constructor does not match the annotated effect. Note that field\n"+
+                            "initializers and statements in the class body add to the primary constructor effect."
+                  reportIfEffectsMismatch(annotEff, constrEff, tree, typer.context, msg)
+                }
+
+              case EmptyTree =>
+            }
+          case _ =>
         }
         tpe
       }
 
   }
 
-
-  def issueEffectError(tree: Tree, found: Effect, expected: Effect, context: analyzer.Context) {
-    val msg = "effect type mismatch;\n found   : " + found + "\n required: " + expected
-    issueNormalTypeError(tree, msg)(typer.context)
-    setError(tree)
+  def reportIfEffectsMismatch(expected: Effect, found: Effect, tree: Tree, context: analyzer.Context, detailsMsg: String = "") {
+    if (!(found <= expected)) {
+      val msg = "effect type mismatch;\n found   : " + found + "\n required: " + expected + {
+        if (detailsMsg.isEmpty) "" else "\n"+ detailsMsg
+      }
+      issueNormalTypeError(tree, msg)(typer.context)
+      setError(tree)
+    }
   }
 
   def changeErrorMessage(err: AbsTypeError, msg: String): AbsTypeError = new AbsTypeError {

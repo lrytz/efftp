@@ -18,8 +18,17 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects {
   /**
    * Read the effect from a list of annotations. If no effect annotation for this domain
    * can be found, this method should return the `default` effect.
+   *
+   * This method does not need to handle `@pure` or `@rel` annotations: this is already
+   * done by `fromAnnotations`.
    */
-  def fromAnnotation(annots: List[AnnotationInfo], default: => Effect): Effect
+  def parseAnnotationInfos(annots: List[AnnotationInfo], default: => Effect): Effect
+
+  /**
+   * TODO: rename to be more in line with `parseAnnotationInfos`.
+   * Maybe rename both. (`parseEffectFromAnnotations`, `emitEffectAsAnnotations`)
+   */
+  def toAnnotation(eff: Effect): List[AnnotationInfo]
 
   /**
    * The effect represented by the annotations on the (return type of the potential method type) `tpe`.
@@ -28,17 +37,24 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects {
    *  - `bottom` if there is a `@pure` or a `@rel(...)` annotation
    *  - `top` otherwise
    */
-  def fromAnnotation(tpe: Type): Effect = {
-    val annots = tpe.finalResultType.annotations
+  def fromAnnotation(tpe: Type): Effect = fromAnnotationList(tpe.finalResultType.annotations)
+
+  def fromSymAnnotation(sym: Symbol): Effect = fromAnnotationList(sym.annotations)
+
+  private def fromAnnotationList(annots: List[AnnotationInfo]) = {
     val hasPureOrRel = annots.exists(ann => {
       val sym = ann.atp.typeSymbol
       sym == pureClass || sym == relClass
     })
     val default = if (hasPureOrRel) bottom else top
-    fromAnnotation(annots, default)
+    parseAnnotationInfos(annots, default)
   }
 
-  def toAnnotation(eff: Effect): List[AnnotationInfo]
+  def hasEffectAnnotations(tpe: Type): Boolean =
+    tpe.finalResultType.annotations.exists(allEffectAnnots.contains)
+
+  def symHasEffectAnnotations(sym: Symbol): Boolean =
+    sym.annotations.exists(ann => allEffectAnnots.contains(ann.atp.typeSymbol))
 
   lazy val pureClass = rootMirror.getClassByName(newTypeName("scala.annotation.effects.pure"))
 

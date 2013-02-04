@@ -13,7 +13,7 @@ abstract class IODomain extends EffectDomain {
 
   lazy val annotationClasses: List[Symbol] = List(ioClass, noIoClass)
 
-  def fromAnnotation(annots: List[AnnotationInfo], default: => Effect): Effect =
+  def parseAnnotationInfos(annots: List[AnnotationInfo], default: => Effect): Effect =
     if      (annots.exists(_.atp.typeSymbol == ioClass)) true
     else if (annots.exists(_.atp.typeSymbol == noIoClass)) false
     else default

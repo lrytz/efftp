@@ -1,14 +1,14 @@
 # next up
 
-- clean uyp code / factor out stuff in pluginsTypeSig
-
 - primary constructor efffects
-  - allow annotating them
-  - detect cyclic references and report apropriate error (need effect annoatation)
+  - trait constructors
 
 - relative effects with `this` receiver
 
 - work on examples towards collections
+
+- computeEffect should have an "expected effect" so that it can warn
+  warn directly at the statement which has a too large effect
 
 ## Testing
 
