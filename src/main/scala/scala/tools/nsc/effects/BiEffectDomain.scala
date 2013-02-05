@@ -31,19 +31,18 @@ abstract class BiEffectDomain extends EffectDomain {
   override def accessorEffect(sym: Symbol): Effect =
     (d1.accessorEffect(sym), d2.accessorEffect(sym))
 
-  override def computeEffect(tree: Tree, enclFun: Symbol, set: Effect => Unit, continue: => Unit) {
-    var e1 = Option.empty[d1.lattice.Effect]
-    var e2 = Option.empty[d2.lattice.Effect]
-    d1.computeEffect(tree, enclFun, e => {e1 = Some(e)}, ())
-    d2.computeEffect(tree, enclFun, e => {e2 = Some(e)}, ())
 
-    (e1, e2) match {
-      case (None, None) =>
-        continue
-      case _ =>
-        set(e1.getOrElse(d1.inferEffect(tree, enclFun)), e2.getOrElse(d2.inferEffect(tree, enclFun)))
-    }
+  // TODO: avoid re-creating new domain contexts on every invocation of `computeEffect` !!
+
+  private def d1Ctx(ctx: EffectContext): d1.EffectContext = {
+    d1.EffectContext(ctx.expected.map(_._1), ctx.relEnv.asInstanceOf[List[d1.RelEffect]], ctx.reporter.asInstanceOf[d1.EffectReporter], ctx.errorInfo)
   }
+  private def d2Ctx(ctx: EffectContext): d2.EffectContext = {
+    d2.EffectContext(ctx.expected.map(_._2), ctx.relEnv.asInstanceOf[List[d2.RelEffect]], ctx.reporter.asInstanceOf[d2.EffectReporter], ctx.errorInfo)
+  }
+
+  override def computeEffectImpl(tree: Tree, ctx: EffectContext): Effect =
+    (d1.computeEffectImpl(tree, d1Ctx(ctx)), d2.computeEffectImpl(tree, d2Ctx(ctx)))
 }
 
 trait BiLattice extends EffectLattice {

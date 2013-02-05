@@ -1,14 +1,16 @@
 # next up
 
-- primary constructor efffects
-  - trait constructors
+- object initializers
+- lazy vals
+- by name
+
+- fix RelEffects.relEffects
 
 - relative effects with `this` receiver
 
 - work on examples towards collections
 
-- computeEffect should have an "expected effect" so that it can warn
-  warn directly at the statement which has a too large effect
+- @infer annotation to allow inferring effects on demand (both for return types and constructors)
 
 ## Testing
 

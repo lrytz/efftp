@@ -8,6 +8,8 @@ import scala.annotation.effects._
 class ClassesSuite extends FunSuite {
 
 
+//  def f(): Unit @pure = { println() }
+
   @pure
   trait T {
     val x = 1
@@ -16,13 +18,29 @@ class ClassesSuite extends FunSuite {
 
 //  def f: T @pure = new T {}
 
-
   @pure
   class C extends T {
     val y = 2
   }
 
   def gg: C @pure = new C
+
+
+
+
+  class Super(x: Int) {
+    //    println()
+  }
+
+  @pure
+  class Derive extends { val x = 1 } with Super(10) {
+    def this(x: Int) {
+      this()
+//      println()
+    }
+  }
+
+  def seja: Derive @pure = new Derive(27)
 
 /*
   class K {
@@ -63,6 +81,8 @@ class ClassesSuite extends FunSuite {
     println()
     val f = 10
   }
+
+  // todo: test copy method's effect
 
   def compObj: Cc.type @pure = Cc
 

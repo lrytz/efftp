@@ -5,90 +5,161 @@ trait Infer { self: EffectDomain =>
   import lattice._
 
   /**
-   * Compute the effect of some tree. Needs enclFun for effect polymorphism
+   * This class is used to report effect mismatch errors.
    */
-  final def inferEffect(tree: Tree, enclFun: Symbol): Effect = {
-    if (tree.isErroneous) { bottom }
-    else {
-      val infer = new EffectInfer(enclFun)
-      infer.traverse(tree)
-      infer.effect
+  abstract class EffectReporter {
+    protected def issueError(tree: Tree, msg: String): Unit
+    protected def setError(tree: Tree): Unit
+
+    private def reportError(tree: Tree, msg: String) {
+      issueError(tree, msg)
+      setError(tree)
     }
-  }
 
-  private class EffectInfer(enclFun: Symbol) extends Traverser {
-    var effect: Effect = bottom
+    private def mismatchMsg(expected: Effect, found: Effect, detailsMsg: Option[String]) =
+      "effect type mismatch;\n found   : " + found + "\n required: " + expected +
+      detailsMsg.map("\n"+_).getOrElse("")
 
-    override def traverse(tree: Tree) {
-      computeEffect(tree, enclFun, e => {effect = effect u e}, super.traverse(tree))
+    def error(expected: Effect, found: Effect, tree: Tree, detailsMsg: Option[String]) {
+      reportError(tree, mismatchMsg(expected, found, detailsMsg))
     }
   }
 
   /**
-   * TODO: rename
+   * The context which is passed through effect inference.
    *
-   * compute the effect of a tree. called by the EffectInfer traverser on every sub-tree.
-   * overriding this method allows concrete domains to specify the effect of
-   * certain trees.
-   *
-   * TODO: continue could be "traverse: Tree => Unit", or even "traverser: Traverser"
-   * for more generality / to give more possibilities to overriding domains
+   * @param expected  The expected effect. If defined, an error message is issued if the inferred effect does not
+   *                  conform to the expected effect.
+   * @param relEnv    The relative effects which are active for inferring the effect of the expression.
+   * @param reporter  The error reporter.
+   * @param errorInfo An optional message which is printed together with every effect mismatch error message.
    */
-  def computeEffect(tree: Tree, enclFun: Symbol, set: Effect => Unit, continue: => Unit) {
-    val sym = tree.symbol
+  case class EffectContext(expected: Option[Effect],
+                           relEnv: List[RelEffect],
+                           reporter: EffectReporter,
+                           errorInfo: Option[String])
+
+
+  /**
+   * Check that `found` conforms to the expected effect in `ctx` and report an error if not.
+   * Returns `found` if no error is issued, `bottom` otherwise (to prevent additional spurious errors).
+   */
+  def checkConform(found: Effect, tree: Tree, ctx: EffectContext): Effect = ctx.expected match {
+    case Some(expected) if !(found <= expected) =>
+      ctx.reporter.error(expected, found, tree, ctx.errorInfo)
+      bottom
+
+    case _ =>
+      found
+  }
+
+
+  /**
+   * This method implements the effect computation, it returns the effect of `tree`.
+   *
+   * Concrete effect domains can override this method to assign effects to specific trees.
+   */
+  def computeEffectImpl(tree: Tree, ctx: EffectContext): Effect = {
+    lazy val sym = tree.symbol
     tree match {
       /** method invocations */
       case Apply(_, _) =>
-        computeApplyEffect(tree, enclFun, set, continue)
+        computeApplyEffect(tree, ctx)
 
       case TypeApply(_, _) =>
-        computeApplyEffect(tree, enclFun, set, continue)
+        computeApplyEffect(tree, ctx)
 
       case Select(qual, _) if sym.isMethod =>
-        computeApplyEffect(tree, enclFun, set, continue)
+        computeApplyEffect(tree, ctx)
 
       case Ident(_) if sym.isMethod =>
         // parameterless local methods are applied using an `Ident` tree
-        computeApplyEffect(tree, enclFun, set, continue)
+        computeApplyEffect(tree, ctx)
 
 
       /** selection of a module has the effect of the module constructor */
       case Select(_, _) if sym.isModule =>
         val constr = sym.moduleClass.primaryConstructor
-        val relEnv = relEffects(enclFun)
-        latent(constr, Map(), relEnv)
+        //        val relEnv = relEffects(enclFun)
+        latent(constr, Map(), ctx)
 
 
       case _ =>
-        continue
+        val childEffs = computeChildEffects(tree, ctx)
+        joinAll(childEffs: _*)
     }
   }
 
-  def computeApplyEffect(tree: Tree, enclFun: Symbol, set: Effect => Unit, continue: => Unit) {
-    val (fun, _, argss) = decomposeApply(tree)
-    val args = argss.flatten
 
-    val sym = fun.symbol
-    val funEff   = fun match {
-      case Select(qual, _) => inferEffect(qual, enclFun)
-      case Ident(_) => bottom
-    }
-    val argsEffs = args map (inferEffect(_, enclFun))
+  /**
+   * Computes the effect of `tree` and verifies that it conforms to the expected effect in `ctx` if it
+   * is defined. Instead of overriding this methods, effect domains should override `computeEffectImpl`.
+   */
+  final def computeEffect(tree: Tree, ctx: EffectContext): Effect = {
+    checkConform(computeEffectImpl(tree, ctx), tree, ctx)
+  }
 
-    val relEnv = relEffects(enclFun)
 
-    val lat = {
-      if (hasRelativeEffect(fun, relEnv)) bottom
-      else {
-        val paramLocs = sym.paramss.flatten.map(ParamLoc)
-        // @TODO: should probably add ThisLoc to the map. can the type of this ever be more specific?
-        latent(sym, paramLocs.zip(args.map(argTpeAndLoc)).toMap, relEnv)
+  /**
+   * Computes the effects of all children of `tree`.
+   */
+  def computeChildEffects(tree: Tree, ctx: EffectContext) = {
+    class ChildEffectsTraverser(ctx: EffectContext) extends Traverser {
+      val res = new collection.mutable.ListBuffer[Effect]()
+
+      /* Here we don't call `super.traverse`, i.e. we don't continue into subtrees any deeper */
+      override def traverse(tree: Tree) { res += computeEffect(tree, ctx) }
+
+      /* `super.traverse` calls `traverse` for each subtree of `tree` */
+      def computeChildEffects(tree: Tree): List[Effect] = {
+        super.traverse(tree)
+        res.toList
       }
     }
-    val e = funEff u (argsEffs :\ bottom)(_ u _) u lat
-    set(e)
+
+    new ChildEffectsTraverser(ctx).computeChildEffects(tree)
   }
 
+  /**
+   * Computes the effect of a method application. This effect consists of three parts:
+   *
+   *  - the effect of the method selection expression
+   *  - the effects of the argument expressions
+   *  - the latent (annotated) effect of the method
+   *
+   * If the function invocation is covered by the relative effect environment in `ctx`, the
+   * latent effect does not have to be considered and is therefore `bottom`.
+   *
+   * Otherwise, all relative effects of the invoked method are expanded using the concrete
+   * argument types, which implements effect polymorphism.
+   */
+  def computeApplyEffect(tree: Tree, ctx: EffectContext): Effect = {
+    val treeInfo.Applied(fun, _, argss) = tree
+    val args = argss.flatten
+
+    val funSym = fun.symbol
+    // calling inferEffect on `fun` would result in an infinite loop
+    val funEff   = fun match {
+      case Select(qual, _) => computeEffect(qual, ctx)
+      case Ident(_) => bottom
+    }
+    val argsEffs = args map (computeEffect(_, ctx))
+
+    val lat = {
+      if (hasRelativeEffect(fun, ctx)) bottom
+      else {
+        val paramLocs = funSym.paramss.flatten.map(ParamLoc)
+        // @TODO: should probably add ThisLoc to the map. can the type of this ever be more specific?
+        latent(funSym, paramLocs.zip(args.map(argTpeAndLoc)).toMap, ctx)
+      }
+    }
+    funEff u (argsEffs :\ bottom)(_ u _) u lat
+  }
+
+
+  /**
+   * Returns the type and location of a tree which is passed to a method as argument.
+   */
   private val argTpeAndLoc: Tree => (Type, Option[Loc]) = arg => {
     val tp = arg.tpe
     arg match {
@@ -101,61 +172,59 @@ trait Infer { self: EffectDomain =>
     }
   }
 
-  private def decomposeApply(tree: Tree): (Tree, List[Tree], List[List[Tree]]) = {
-    var baseFun: Tree = null
-    var targs: List[Tree] = Nil
-    def getArgs(t: Tree): List[List[Tree]] = t match {
-      case Apply(fun, args) =>
-        args :: getArgs(fun)
-      case TypeApply(fun, targs0) =>
-        targs = targs0
-        getArgs(fun)
-      case _ =>
-        baseFun = t
-        Nil
-    }
-    val argss = getArgs(tree)
-    (baseFun, targs, argss.reverse)
-  }
-
-  private def hasRelativeEffect(fun: Tree, relEnv: List[RelEffect]): Boolean = {
+  /**
+   * True if the method `fun` exists in the relative effect environment in `ctx`, i.e. if it is
+   * a method call on a parameter of an enclosing method, and that method is effect-polymorphic in `fun`.
+   */
+  private def hasRelativeEffect(fun: Tree, ctx: EffectContext): Boolean = {
     val sym = fun.symbol
     fun match {
       case Select(id @ Ident(_), _) =>
         val r = RelEffect(ParamLoc(id.symbol), Some(sym))
-        lteRel(List(r), relEnv)
+        lteRel(List(r), ctx.relEnv)
 
       case Select(th @ This(_), _) =>
         val r = RelEffect(ThisLoc(th.symbol), Some(sym))
-        lteRel(List(r), relEnv)
+        lteRel(List(r), ctx.relEnv)
 
       case _ => false
     }
   }
 
 
-  // @TODO: fixpoint computation needed (rel effects can go in circles!)?
-  // @TODO: document what happens here (in general, argtps map specifically)
-  private def latent(fun: Symbol, argtps: Map[Loc, (Type, Option[Loc])], relEnv: List[RelEffect]): Effect = {
+  /**
+   * The latent effect of `fun`, i.e. the maximal effect that might occur when invoking `fun`.
+   *
+   * @TODO: fixpoint computation needed (rel effects can go in circles!)?
+   * @TODO: document what happens here (in general, argtps map specifically)
+   *
+   * @param argtps A map from the parameters of `fun` to the actual argument types which are passed
+   *               in the invocation. These types might be more specific than the parameter types of
+   *               `fun`, which implements effect-polymorphism.
+   * @param ctx    If `fun` has itself relative effects, but those relative effects are also in the
+   *               environment ctx.relEnv (i.e. the enclosing function has the same relative effect), that
+   *               relative effect can be ignored.
+   */
+  private def latent(fun: Symbol, argtps: Map[Loc, (Type, Option[Loc])], ctx: EffectContext): Effect = {
     defaultInvocationEffect(fun).getOrElse {
       val concrete = fromAnnotation(fun.info)
       val relEff = relEffects(fun)
 
       val expandedRelEff = relEff map { r =>
-        if (lteRelOne(r, relEnv)) bottom
+        if (lteRelOne(r, ctx.relEnv)) bottom
         else r match {
           case RelEffect(paramLoc, Some(fun)) if (argtps contains paramLoc) =>
             argtps(paramLoc) match {
-              case (tp, Some(argLoc)) if lteRelOne(RelEffect(argLoc, Some(fun)), relEnv) =>
+              case (tp, Some(argLoc)) if lteRelOne(RelEffect(argLoc, Some(fun)), ctx.relEnv) =>
                 // @TODO: document. if a parameter is forwarded to another method as parameter, detect rel effects
                 bottom
               case (tp, _) =>
                 val funSym = tp.member(fun.name).suchThat(m => m.overriddenSymbol(fun.owner) == fun || m == fun)
-                latent(funSym, Map(), relEnv)
+                latent(funSym, Map(), ctx)
             }
 
           case RelEffect(_, Some(fun)) =>
-            latent(fun, Map(), relEnv)
+            latent(fun, Map(), ctx)
 
           case _ =>
             // todo: union of effects of all methods

@@ -7,7 +7,6 @@ trait DefaultEffects { self: EffectDomain =>
   import global.{definitions => d}
   import global.{rootMirror => m}
 
-  // todo: scala.Product, scala.Equals
   lazy val classesWithPureMethods: List[Symbol] = List(
     d.ObjectClass,
     d.StringClass,

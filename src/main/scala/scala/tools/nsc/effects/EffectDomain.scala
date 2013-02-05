@@ -13,6 +13,9 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects {
 
   import global._
 
+  /**
+   * The annotation classes which are used by this effect domain to annotate effects.
+   */
   val annotationClasses: List[Symbol]
 
   /**
@@ -39,6 +42,9 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects {
    */
   def fromAnnotation(tpe: Type): Effect = fromAnnotationList(tpe.finalResultType.annotations)
 
+  /**
+   * The effect represented by the annotations on symbol `sym`
+   */
   def fromSymAnnotation(sym: Symbol): Effect = fromAnnotationList(sym.annotations)
 
   private def fromAnnotationList(annots: List[AnnotationInfo]) = {
@@ -50,9 +56,15 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects {
     parseAnnotationInfos(annots, default)
   }
 
+  /**
+   * True if the result type of `tpe` has some effect annotations.
+   */
   def hasEffectAnnotations(tpe: Type): Boolean =
     tpe.finalResultType.annotations.exists(allEffectAnnots.contains)
 
+  /**
+   * True if symbol `sym` has some effect annotations.
+   */
   def symHasEffectAnnotations(sym: Symbol): Boolean =
     sym.annotations.exists(ann => allEffectAnnots.contains(ann.atp.typeSymbol))
 

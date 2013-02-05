@@ -30,14 +30,12 @@ abstract class IODomain extends EffectDomain {
     sym != NoSymbol && sym.owner == PredefMClass && printNames.contains(sym.name)
   }
 
-  override def computeEffect(tree: Tree, enclFun: Symbol, set: Effect => Unit, continue: => Unit) {
-    tree match {
-      case Apply(fun, args) if isPrint(fun.symbol) =>
-        set(true)
+  override def computeEffectImpl(tree: Tree, ctx: EffectContext): Effect = tree match {
+    case Apply(fun, args) if isPrint(fun.symbol) =>
+      true
 
-      case _ =>
-        super.computeEffect(tree, enclFun, set, continue)
-    }
+    case _ =>
+      super.computeEffectImpl(tree, ctx)
   }
 }
 
