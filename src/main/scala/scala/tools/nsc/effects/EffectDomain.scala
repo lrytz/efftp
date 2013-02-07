@@ -43,11 +43,9 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects {
   def fromAnnotation(tpe: Type): Effect = fromAnnotationList(tpe.finalResultType.annotations)
 
   /**
-   * The effect represented by the annotations on symbol `sym`
+   * The effect represented by `annotations`
    */
-  def fromSymAnnotation(sym: Symbol): Effect = fromAnnotationList(sym.annotations)
-
-  private def fromAnnotationList(annots: List[AnnotationInfo]) = {
+  def fromAnnotationList(annots: List[AnnotationInfo]) = {
     val hasPureOrRel = annots.exists(ann => {
       val sym = ann.atp.typeSymbol
       sym == pureClass || sym == relClass
@@ -57,16 +55,11 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects {
   }
 
   /**
-   * True if the result type of `tpe` has some effect annotations.
+   * True there exists some effect annotations in the list `annotations`.
    */
-  def hasEffectAnnotations(tpe: Type): Boolean =
-    tpe.finalResultType.annotations.exists(allEffectAnnots.contains)
-
-  /**
-   * True if symbol `sym` has some effect annotations.
-   */
-  def symHasEffectAnnotations(sym: Symbol): Boolean =
-    sym.annotations.exists(ann => allEffectAnnots.contains(ann.atp.typeSymbol))
+  def existsEffectAnnotation(annotations: List[AnnotationInfo]) = {
+    annotations.exists(ann => allEffectAnnots.contains(ann.atp.typeSymbol))
+  }
 
   lazy val pureClass = rootMirror.getClassByName(newTypeName("scala.annotation.effects.pure"))
 

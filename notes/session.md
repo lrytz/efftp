@@ -1,16 +1,10 @@
 # next up
 
-- object initializers
-- lazy vals
-- by name
-
-- fix RelEffects.relEffects
-
 - relative effects with `this` receiver
 
 - work on examples towards collections
 
-- @infer annotation to allow inferring effects on demand (both for return types and constructors)
+- syntax for effect casts
 
 ## Testing
 
@@ -31,11 +25,124 @@
 
 ## Features
 
+- effects of pattern matching trees
 
-- effect of module initializers
-    - selecting a module should have the effect of the initializer
-    - same for lazy vals
-    - similary for by-name params
+- to know if a method has an annotated type or not, we currently check if it has a lazy type. this is not correct: also
+  methods with annotated return types have a lazy type, just instead of type-checking the rhs, completion will
+  type-check the the return type tree.
+
+- "Annotated" tree should trigger effect checking if the annotated type has effect annotations
+
+- refine the inference of a tree's effect. e.g. support nested definitions:
+  - effects of annotation expressions should not be included in the effect of a tree (are they?)
+
+- @infer annotation to allow inferring effects on demand (both for return types and constructors)
+
+- effect annotation on a function type's (or some other) type parameter, see what happens. should ideally also
+  fix the non-contravariant-method-parameter-subtyping problem described in IOSuite.scala.
+  good: (A => B @eff) is parsed as (A => (B @eff))
+
+- function literals need explicit parameter types when the expected type is a refined function type
+  val f: (Int => Int) { def apply(x: Int) = Int @pure } = x => x  // doesn't compile
+
+- Function: no way to specify rel effect. can specify rel effect in expected type's apply method, but that's not
+  an outer method of the function's body.
+
+- add effect annotations only when necessary
+    - if there is `@pure` or `@rel(..)`, don't add `@noIo`
+    - if there is no `@pure` or `@rel(..)`, don't add `@io`
+    - BUT add effect annotations when necessary: namely to methods with explicit return type, but without effect annotations.
+
+- refchecks should verify that all overrides are valid - test that!
+
+
+## pushing argument types into @rel annotations of result types
+
+### replace @rel effects in result type when something gets out of scope:
+
+
+    class rel(x: Any) extends annotation.Annotation with annotation.TypeConstraint
+    def % = ???
+
+    def foo(f: Int => Int) = new {
+      def bar(x: Int): Int @rel(f.apply(%)) = f(x)
+    }
+
+    foo(x => x).bar(10)
+
+
+    def foo(a: A) = {
+      class C {
+        def bar(): T @rel(a.mem()) = a.mem()
+      }
+      new C
+    }
+
+    val someC = foo(someA) // should have more specific effect, { bar(): T @rel(someA.mem()) }
+
+
+
+- Scala compiler DOES replace parameter references already:
+
+
+    def foo(f: Object) = new { def bar: f.type = f }
+    val x = "sldkfj"
+    foo(x)
+    >> res2: Object{def bar: x.type} = $anon$1@fb765a
+
+
+    def foo(f: Object) = new { def bar: Object @rel(f) = "" }
+    foo(getString())
+      >> Object{def bar: Object @rel(f)} forSome { val f: String } = $anon$1@1bbf341
+
+
+
+- but not if there are more complex expressions in the annotation, then we end up with a type that has free variables (f below)
+
+    def foo(f: Object) = new { def bar: Object @rel(f.hashCode()) = "" }
+    foo(getString())
+      >> Object{def bar: Object @rel(f.hashCode())} = $anon$1@1ae3050
+
+
+
+
+### effects relative to constructor arguments:
+
+
+    class C(val x: String) { def foo: x.type = x }
+    def str = "huhu"
+    val c = new C(str)  // type C
+    c.foo
+      >> _1.x.type forSome { val _1: C } = huhu
+
+
+    class C(f: Int => Int) {
+      @rel(f) type constructorEffect
+      f(10)
+
+      // should foo be implicitly @rel(f) ??
+      //   - it's not nested in the constructor of C, so the enclosing method doesn't have @rel(f)
+      //   - but it might be the more intuitive behavior, so we should change the rule for @rel inference:
+      //     not the enclosing method, but the enclosing definition with parameter list (class or method)
+      //   - PROBLEM: the type of "new C(x => x)" is simply C, we lose the information that "f" is a pure function.
+
+      @rel(f)
+      def foo = f(10)
+
+      lazy val res = f(10)
+    }
+
+
+
+also this exmaple
+
+    class C(x: => Int) { def bar = x }
+    val c = new C(10)
+    c.bar // should be pure, but is not
+
+
+
+## syntethics
 
 - handle synthetics:
     - symbol
@@ -66,55 +173,6 @@
         - class: hashCode, equals
         - class: readResolve
 
-
-- by-name params. also for classes:
-    - class C(x: => Int) { def bar = x }; val c = new C({println("hui"); 100}); c.bar
-
-- lazy vals
-
-- to know if a method has an annotated type or not, we currently check if it has a lazy type. this is not correct: also
-  methods with annotated return types have a lazy type, just instead of type-checking the rhs, completion will
-  type-check the the return type tree.
-
-
-- constructor effects
-    - support annotating constructor effects: primary on class, auxiliary on the symbol (not the return type!)
-
-- "Annotated" tree should trigger effect checking if the annotated type has effect annotations
-
-- syntax for effect casts
-
-- refine the inference of a tree's effect:
-    - skip on DefDef, Function, but include ValDef's rhs effect (for non-lazy ValDefs)
-    - effects of annotation expressions should not be included in the effect of a tree (are they?)
-
-
-- effect annotation on a function type's (or some other) type parameter, see what happens. should ideally also
-  fix the non-contravariant-method-parameter-subtyping problem described in IOSuite.scala.
-  good: (A => B @eff) is parsed as (A => (B @eff))
-
-
-- function literals need explicit parameter types when the expected type is a refined function type
-  val f: (Int => Int) { def apply(x: Int) = Int @pure } = x => x  // doesn't compile
-
-
-- annotationsConform assumes that
-    - rel annotations are there. make sure that they are added to all method and function symbols before we can get into
-      annotationsConform
-    - computeEffect (in Infer.scala) uses encFun symbol and looks up the rel effect of the enclosing function not by the
-      annotations of that symbol, but of the next outer which is not lazy (using RelEffects.relEffects(sym))
-
-
-- Function: no way to specify rel effect. can specify rel effect in expected type's apply method, but that's not
-  an outer method of the function's body.
-
-
-- add effect annotations only when necessary
-    - if there is `@pure` or `@rel(..)`, don't add `@noIo`
-    - if there is no `@pure` or `@rel(..)`, don't add `@io`
-
-
-- refchecks should verify that all overrides are valid - write tests
 
 
 # older stuff

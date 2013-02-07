@@ -62,27 +62,60 @@ trait Infer { self: EffectDomain =>
   def computeEffectImpl(tree: Tree, ctx: EffectContext): Effect = {
     lazy val sym = tree.symbol
     tree match {
-      /** method invocations */
-      case Apply(_, _) =>
+
+      /*** Method Invocations ***/
+
+      case _: Apply =>
         computeApplyEffect(tree, ctx)
 
-      case TypeApply(_, _) =>
+      case _: TypeApply =>
         computeApplyEffect(tree, ctx)
 
-      case Select(qual, _) if sym.isMethod =>
+      case _: Select if sym.isMethod =>
         computeApplyEffect(tree, ctx)
 
-      case Ident(_) if sym.isMethod =>
+      case _: Ident if sym.isMethod =>
         // parameterless local methods are applied using an `Ident` tree
         computeApplyEffect(tree, ctx)
 
 
-      /** selection of a module has the effect of the module constructor */
-      case Select(_, _) if sym.isModule =>
-        val constr = sym.moduleClass.primaryConstructor
-        //        val relEnv = relEffects(enclFun)
-        latent(constr, Map(), ctx)
+      /*** Modules, Lazy Vals and By-Name Params ***/
 
+      case _: Select if sym.isModule =>
+        // selection of a module has the effect of the module constructor
+        val constr = sym.moduleClass.primaryConstructor
+        latent(constr, Map(), Map(), ctx)
+
+      case (_: Select | _: Ident) if sym.isLazy =>
+        latent(sym, Map(), Map(), ctx)
+
+      case _: ValDef if sym.isLazy =>
+        // lazy val definitions have no effect
+        bottom
+
+      case (_: Select | _: Ident) if (sym.isByNameParam || definitions.isByNameParamType(sym.tpe)) =>
+        // if the enclosing method is annotated `@rel(x)` for by-name parameter `x`, delay the effect
+        val isField = sym.isParamAccessor
+        val hasRel = ctx.relEnv.exists({
+          case RelEffect(ParamLoc(relSym), None) =>
+            // for primary constructor expressions, references to by-name parameters are in fact references to the
+            // corresponding field. so we need to match the field symbol (sym) to the constr param (relSym)
+            relSym == sym || (isField && relSym.name == sym.name && relSym.owner.owner == sym.owner)
+          case _ =>
+            false
+        })
+        if (hasRel) bottom
+        else top
+
+
+      /*** Definitions ***/
+
+      case _: TypeDef | _: DefDef | _: ClassDef | _: ModuleDef | _: Function =>
+        // type, method, class and function definitions have no effect
+        bottom
+
+
+      /*** Otherwise, recurse into Subtrees ***/
 
       case _ =>
         val childEffs = computeChildEffects(tree, ctx)
@@ -138,22 +171,36 @@ trait Infer { self: EffectDomain =>
     val args = argss.flatten
 
     val funSym = fun.symbol
+    val params = funSym.paramss.flatten
     // calling inferEffect on `fun` would result in an infinite loop
     val funEff   = fun match {
       case Select(qual, _) => computeEffect(qual, ctx)
       case Ident(_) => bottom
     }
-    val argsEffs = args map (computeEffect(_, ctx))
+
+    // for by-name parameters, the effect of the argument expression is only included if the
+    // callee has a `@rel(x)` annotation for the by-name parameter x (done by `latent` below)
+    val (byNameEffs: Map[Symbol, Effect], byValEffs: List[Effect]) = {
+      val (byNameParamArgs, byValueParmArgs) = (params zip args).partition(_._1.isByNameParam)
+      // use no expected effect for inferring by-name parameter effects, otherwise effect mismatch
+      // errors might be issued unnecessarily
+      lazy val noExpectedCtx = ctx.copy(expected = None)
+      val byNameEffs0 = byNameParamArgs.map({
+        case (param, arg) => (param, computeEffect(arg, noExpectedCtx))
+      }).toMap
+      val byValEffs0 = byValueParmArgs.map(pa => computeEffect(pa._2, ctx))
+      (byNameEffs0, byValEffs0)
+    }
 
     val lat = {
       if (hasRelativeEffect(fun, ctx)) bottom
       else {
-        val paramLocs = funSym.paramss.flatten.map(ParamLoc)
+        val paramLocs = params.map(ParamLoc)
         // @TODO: should probably add ThisLoc to the map. can the type of this ever be more specific?
-        latent(funSym, paramLocs.zip(args.map(argTpeAndLoc)).toMap, ctx)
+        latent(funSym, paramLocs.zip(args.map(argTpeAndLoc)).toMap, byNameEffs, ctx)
       }
     }
-    funEff u (argsEffs :\ bottom)(_ u _) u lat
+    funEff u (byValEffs :\ bottom)(_ u _) u lat
   }
 
 
@@ -205,7 +252,8 @@ trait Infer { self: EffectDomain =>
    *               environment ctx.relEnv (i.e. the enclosing function has the same relative effect), that
    *               relative effect can be ignored.
    */
-  private def latent(fun: Symbol, argtps: Map[Loc, (Type, Option[Loc])], ctx: EffectContext): Effect = {
+  private def latent(fun: Symbol, argtps: Map[Loc, (Type, Option[Loc])],
+                     byNameEffs: Map[Symbol, Effect], ctx: EffectContext): Effect = {
     defaultInvocationEffect(fun).getOrElse {
       val concrete = fromAnnotation(fun.info)
       val relEff = relEffects(fun)
@@ -213,18 +261,21 @@ trait Infer { self: EffectDomain =>
       val expandedRelEff = relEff map { r =>
         if (lteRelOne(r, ctx.relEnv)) bottom
         else r match {
+          case RelEffect(ParamLoc(param), None) if param.isByNameParam =>
+            byNameEffs.getOrElse(param, top)
+
           case RelEffect(paramLoc, Some(fun)) if (argtps contains paramLoc) =>
             argtps(paramLoc) match {
               case (tp, Some(argLoc)) if lteRelOne(RelEffect(argLoc, Some(fun)), ctx.relEnv) =>
-                // @TODO: document. if a parameter is forwarded to another method as parameter, detect rel effects
+                // @TODO: document, example. if a parameter is forwarded to another method as parameter, detect rel effects
                 bottom
               case (tp, _) =>
                 val funSym = tp.member(fun.name).suchThat(m => m.overriddenSymbol(fun.owner) == fun || m == fun)
-                latent(funSym, Map(), ctx)
+                latent(funSym, Map(), Map(), ctx)
             }
 
           case RelEffect(_, Some(fun)) =>
-            latent(fun, Map(), ctx)
+            latent(fun, Map(), Map(), ctx)
 
           case _ =>
             // todo: union of effects of all methods

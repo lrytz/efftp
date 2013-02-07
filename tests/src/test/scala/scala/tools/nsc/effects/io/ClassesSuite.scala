@@ -8,6 +8,68 @@ import scala.annotation.effects._
 class ClassesSuite extends FunSuite {
 
 
+/*
+OK now, only one error message
+  def twice(f: Int => Int, x: Int): Int @rel(f.apply(%)) = f(f(x))
+  def plusTwoE(x: Int): Int @pure = twice(x => { println(); x + 1 }, x)
+*/
+
+/*
+  def foo(f: Int => Int) = new {
+    def bar(x: Int): Int @rel(f.apply(%)) = f(x)
+  }
+  // not yet supported.. has top effect
+  def lkdsjflk: Any @pure = foo(x => x).bar(10)
+*/
+
+
+  /*
+  class C(x: => Int) {
+    @rel(x) type constructorEffect
+//    @pure type constructorEffect
+
+    def foos = x
+    lazy val y = x
+//    y
+  }
+
+  // not yet supported.. has top effect.
+  def sldkfj: Int @pure = new C(10).foos
+*/
+
+
+/*
+  def f00(x: => Int): Int @pure @rel(x) = {
+//    x
+    x
+    1
+  }
+
+//  def sokdjf: Int @pure = f00({println(); 1})
+  def sokdjf: Int @pure = f00({ 1 + 1 })
+*/
+/*
+
+  @pure
+  class LazyFals {
+    lazy val x = { println(); 1 }
+//    lazy val y: Int @pure = { println(); 1 }
+  }
+
+//  def foo: Unit @pure = new LazyFals().x
+
+
+
+
+//  @pure
+  object t {
+//    println()
+    def foo() = 1
+  }
+
+  def skldffoo: Int @pure = t.foo()
+
+
 //  def f(): Unit @pure = { println() }
 
   @pure
@@ -21,6 +83,7 @@ class ClassesSuite extends FunSuite {
   @pure
   class C extends T {
     val y = 2
+//    println()
   }
 
   def gg: C @pure = new C
@@ -41,6 +104,9 @@ class ClassesSuite extends FunSuite {
   }
 
   def seja: Derive @pure = new Derive(27)
+
+*/
+
 
 /*
   class K {

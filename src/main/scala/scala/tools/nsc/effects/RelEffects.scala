@@ -12,35 +12,163 @@ trait RelEffects { self: EffectDomain =>
 
   /**
    * Returns the relative effects of a method
-   *
    * @TODO: document difference to the method relFromAnnotation
-   * @TODO: probably not correct, assumes that symbols with non-inferred types have a non-lazy type; not necessarily true AFAICS. see session.md
+   *
+   * The relative effect of a method is defined as follows:
+   *  - If the method has an explicit return type, the @rel annotations on the return type (if
+   *    there are none, the method doesn't have a relative effect)
+   *  - If the return type of the method is inferred, the relative effect is that of the next
+   *    enclosing method.
+   *
+   * The implementation of this method is very tricky. The reason is that we cannot find out from
+   * a method symbol if it has an inferred type or not.
+   *
+   *
+   * Scenario 1
+   * ----------
+   *
+   *   def foo = {
+   *     def bar = 1
+   *     bar
+   *   }
+   *
+   * Events (explained in text below)
+   *
+   *  + fooSym.info                       // Somebody wants the type of `foo`
+   *  |-+ computeType(fooBody)            // Namers.typeSig(foo), type completer for foo
+   *  | |-+ Namers.enterSym(barSym)       // Typers.typedBlock, statements
+   *  | |-+ typed(reference-to-bar)       // Typers.typedBlock, expr
+   *  |   |-+ barSym.info                 // Typer asks the type of `barSym`
+   *  |   | |-- computeType(barBody)      // Namers.typeSig(bar), type completer for bar
+   *  |   | |-+ pluginsTypeSig(bar)       // Finished computing the type of `barBody`, call pluginsTypeSig before assigning to `barSym`
+   *  |   | | |-+ computeEffect(barBody)
+   *  |   | |   |-- relEffects(barSym)
+   * -|---|-|------------------------------- future
+   *  |   | |-+ barSym.setType            // replaces the lazy type of barSym
+   *  |   |
+   *  |   |-+ assign type to reference-to-bar
+   *  |
+   *  |-+ pluginsTypeSig(foo)
+   *  | |-+ computeEffect(fooBody)
+   *  |   |-+ relEffects(fooSym)
+   *  |
+   *  |--+ fooSym.setType                 // replaces the lazy type of fooSym
+   *
+   *
+   *
+   * Inferring the type of `foo` triggers type inference for the type of `bar`. This means that in
+   * the analyzer plugin, we will first receive a call to `pluginsTypeSig` for symbol `bar`, once
+   * its type has been computed by `typeSig` - `bar` is the method whose type is computed first.
+   *
+   * Since the type of `bar` was inferred, the effects plugin will also infer the effects of the body
+   * of `bar`. To do that, we need to know what are the relative effects of `bar` (this information is
+   * passed to effect inference in the effect typing context).
+   *
+   * Therefore there will be an invocation `relEffects(barSym)`. At this point, the symbol for `bar`
+   * still has a lazy type: the inferred type will only be assigned to `barSym` *after* `pluginsTypeSig`
+   * returns a result. Also the symbol of `foo` will still have a lazy type: the type inference for
+   * the body of `foo` is still running.
+   *
+   * The fact that these two symbols have lazy types when we arrive here indicates that they have an
+   * inferred type, which means they also have an inferred effect (if we want to change that, i.e. support
+   * an @inferEff annotation, we need to fix things).
+   *
+   * That explains: if the method symbol passed into `relEffects` has a lazy type, we use the relative
+   * effects of the next enclosing method.
+   *
+   *
+   * Scenario 2
+   * ----------
+   *
+   *   def foo: Int = {
+   *     def bar = 1
+   *     bar
+   *   }
+   *
+   *  + fooSym.info                       // Somebody wants the type of `foo`
+   *  |-+ typedType(Int).tpe              // Namers.typeSig(foo)
+   *  |-+ pluginsTypeSig(foo)             // call plugins before
+   *  | |-+ ---nothing---                 // since type was not inferred, also effects are not inferred. if the return
+   *  |                                      type had effect annots they would end up in the resulting type of course.
+   *  |-+ fooSym.setType                  // replaces the lazy type
+   *
+   * --------------------------------------- later, during typer phase
+   *
+   *  + typedDefDef(foo)
+   *  |-+ fooSym.initialize               // if nobody asked for `foo.info` before, will do the above. nothing otherwise
+   *  |-+ typed(fooBody)
+   *  | |-+ Namers.enterSym(barSym)
+   *  | |-+ typed(reference-to-bar)
+   *  |   |-+ barSym.info
+   *  |   | |-- computeType(barBody)
+   *  |   | |-+ pluginsTypeSig(bar)
+   *  |   | | |-+ computeEffect(barBody)
+   *  |   | |   |-- relEffects(barSym)    // DIFFERENCE TO BEFORE: the enclosing fooSym now has a non-lazy type!!!
+   * -|---|-|------------------------------- future
+   *  |   | |-+ barSym.setType
+   *  |   |
+   *  |   |-+ assign type to reference-to-bar
+   *  |
+   *  |-+ verify that fooBody.tpe <:< foo.tpt
+   *
+   *
+   * Note that `fooSym` *also* has a lazy type initially! Instead of type-checking the body of `foo`,
+   * this lazy type will type check the expected type and not touch the body tree.
+   *
+   * What happens in this case: the body tree of `foo` will only be type-checked during the typer phase.
+   * Typing `fooBody` is still the same as before, up to the call to `relEffects`: now the inner `barSym`
+   * has a lazy type (we're computing its type / effect) BUT the enclosing `fooSym` has a given type. So
+   * `relEffects` will return the `@rel` annotations that are found on `fooSym` (which are none in the exmaple).
+   *
+   * ------------------
+   *
+   * INVARIANTS: We make a few assumptions here
+   *
+   *   1. The completer of an enclosing method is *always* invoked *before* the completer of a nested method.
+   *      There are two cases how the inner completer can be invoked:
+   *        a. Due to type inference of the enclosing method (first scenario). Then obviously the inner completer
+   *           is called later (i.e. within the outer completer)
+   *        b. Due to type-checking the outer DefDef. Since typedDefDef calls `initialize` in the beginning, the
+   *           outer completer is executed first.
+   *
+   *   2. An inferred return type always means an inferred effect.
+   *
+   * ------------------
+   *
+   * If we want to change the second assumption, i.e. infer effects when there is an explicit returnt type, a
+   * type-check of a body is triggered even if there's an explicit return type. Before that (in pluginsTypeSig),
+   * we have the possibility to add an attachment to the outer method symbol and provide some information which
+   * could be extracted here. So we could recognize these symbols here and maybe handle them differently.
+   *
+   *   def foo: Int @infer @rel(x) = { ... }
+   *
+   * Would trigger effect inference. But before, that, we could assign attach the `@rel` effect to `fooSym`. Then
+   * we could still use the annotated relative effect, even thought the `fooSym` still has a lazy type.
+   *
+   * ------------------
+   *
+   * Constructor Symbols
+   *
    */
   def relEffects(sym: Symbol): List[RelEffect] =
     if (sym == NoSymbol) {
       List()
-    } else if (!sym.isMethod) {
+    } else if (!sym.isMethod && !sym.isLazy) {
       abort(s"expected method when looking up relative effects, got $sym")
     } else if (sym.rawInfo.isComplete) {
-      // @TODO: here we basically assume that IF the type of a method is not inferred, THEN it ALWAYS has a
-      // non lazy type. Let's hope this is the case - is there a better way to know from a symbol if its type
-      // was inferred?
       relFromAnnotation(sym.tpe)
     } else {
-      val encl = {
-        // for method symbols, the enclMethod is itself
-        val enclM = sym.enclMethod
-        if (enclM == sym) sym.owner.enclMethod
-        else enclM
-      }
-      relEffects(encl)
+      relEffects(sym.owner.enclMethod)
     }
 
   /**
    * The relative effect of the (return type of the potential method type) `tpe`.
    */
   def relFromAnnotation(tpe: Type): List[RelEffect] = {
-    val annots: List[AnnotationInfo] = tpe.finalResultType.annotations
+    relFromAnnotationList(tpe.finalResultType.annotations)
+  }
+
+  def relFromAnnotationList(annots: List[AnnotationInfo]): List[RelEffect] = {
     val relAnnots = annots.filter(_.atp.typeSymbol == relClass)
     (List[RelEffect]() /: relAnnots)((eff, annot) =>
       joinRel(eff, readRelAnnot(annot))
@@ -134,6 +262,7 @@ trait RelEffects { self: EffectDomain =>
   def meetRel(r1: List[RelEffect], r2: List[RelEffect]): List[RelEffect] = {
     var res = List[RelEffect]()
     for (e1 <- r1; e2 <- r2) {
+      // TODO: probably wrong; might produce duplicates in res.
       if      (e1 <= e2) res = e1 :: res
       else if (e2 <= e1) res = e2 :: res
     }
