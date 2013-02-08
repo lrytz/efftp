@@ -2,7 +2,6 @@ package scala.tools.nsc.effects
 
 trait RelEffects { self: EffectDomain =>
   import global._
-  import lattice._
 
   lazy val relClass = rootMirror.getClassByName(newTypeName("scala.annotation.effects.rel"))
   lazy val percent = {
@@ -154,7 +153,7 @@ trait RelEffects { self: EffectDomain =>
     if (sym == NoSymbol) {
       List()
     } else if (!sym.isMethod && !sym.isLazy) {
-      abort(s"expected method when looking up relative effects, got $sym")
+      abort(s"expected method or lazy val when looking up relative effects, got $sym")
     } else if (sym.rawInfo.isComplete) {
       relFromAnnotation(sym.tpe)
     } else {
@@ -229,45 +228,24 @@ trait RelEffects { self: EffectDomain =>
     }
   }
 
-  def joinRel(r1: List[RelEffect], r2: List[RelEffect]): List[RelEffect] = {
-    var res = r1
-    for (e2 <- r2) {
-      // include e2 into res. First find relative effects in res that have the same param
-      val (sameParam, others) = res.partition(e1 => e1.param == e2.param)
-      if (sameParam.isEmpty) {
-        res = e2 :: others
-      } else {
-        res = sameParam.find(_.fun.isEmpty) match {
-          case Some(e) =>
-            // if there's an existing relative effect which covers all methods, take only that.
-            e :: others
-          case None =>
-            // if e2 covers all methods, take only e2, drop the existing ones with the same param
-            if (e2.fun.isEmpty) e2 :: others
-            // otherwise, if the same relative effect already exists, drop e2
-            else if (sameParam.exists(_.fun == e2.fun)) res
-            // otherwise, include e2
-            else e2 :: res
-        }
-      }
-    }
-    res
-  }
+  // relative effects that are either in r1 or in r2
+  def joinRel(r1: List[RelEffect], r2: List[RelEffect]): List[RelEffect] =
+    (r1 /: r2)((res, e2) => {
+      if (lteRelOne(e2, res)) res
+      else e2 :: res
+    })
 
   def joinAllRel(rels: List[RelEffect]*) = {
     if (rels.isEmpty) Nil
     else (rels.tail :\ rels.head)(joinRel)
   }
 
-  def meetRel(r1: List[RelEffect], r2: List[RelEffect]): List[RelEffect] = {
-    var res = List[RelEffect]()
-    for (e1 <- r1; e2 <- r2) {
-      // TODO: probably wrong; might produce duplicates in res.
-      if      (e1 <= e2) res = e1 :: res
-      else if (e2 <= e1) res = e2 :: res
-    }
-    res
-  }
+  // keep only relative effects which exist in both r1 and in r2
+  def meetRel(r1: List[RelEffect], r2: List[RelEffect]): List[RelEffect] =
+    (List[RelEffect]() /: r1)((res, e1) => {
+      if (lteRelOne(e1, r2)) e1 :: res
+      else res
+    })
 
   def meetAllRel(rels: List[RelEffect]*) = {
     if (rels.isEmpty) Nil
@@ -283,14 +261,36 @@ trait RelEffects { self: EffectDomain =>
   }
 
 
+  /**
+   * An empty `fun` can mean two things:
+   *
+   *  - If `param` is a by-name parameter, `fun` is always empty. The effect of accessing
+   *    a by-name parameter is always `top`
+   *  - In all other cases, an empty `fun` means "all apply methods of `param`"
+   */
   case class RelEffect(param: Loc, fun: Option[Symbol]) {
+    def applyMethods =
+      param.symbol.info.member(nme.apply).alternatives
+
     def <= (other: RelEffect) =
-      this.param == other.param && (this.fun == other.fun || other.fun.isEmpty)
+      this.param == other.param && ((this.fun, other.fun) match {
+        case (Some(tFunSym), None) if !other.param.symbol.isByNameParam =>
+          other.applyMethods.exists(_ == tFunSym)
+
+        case (None, Some(oFunSym)) if !this.param.symbol.isByNameParam =>
+          this.applyMethods.forall(_ == oFunSym)
+
+        case (tFun, oFun) =>
+          tFun == oFun
+      })
   }
 
-  trait Loc
-  case class ThisLoc(cls: Symbol) extends Loc
+  trait Loc { def symbol: Symbol }
+  case class ThisLoc(cls: Symbol) extends Loc {
+    def symbol = cls
+  }
   case class ParamLoc(param: Symbol) extends Loc {
+    def symbol = param
     override def hashCode() = param.hashCode()
     override def equals(other: Any) = other match {
       case ParamLoc(otherParam) => sameParam(param, otherParam)

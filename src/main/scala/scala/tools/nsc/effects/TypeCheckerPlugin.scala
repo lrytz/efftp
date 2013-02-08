@@ -37,24 +37,29 @@ trait TypeCheckerPlugin { self: EffectChecker =>
                                visited: Set[Symbol] = Set()): (Boolean, Set[Symbol]) = {
       var localVisited = visited
 
+      def checkRelEff(fun: Symbol) = {
+        localVisited += fun
+        val resTp = fun.info.finalResultType
+        val eFun = fromAnnotation(resTp)
+        val relFun = relFromAnnotation(resTp)
+        val (b, v) = effectsConform(eFun, relFun, e2, rel2, localVisited)
+        localVisited = v
+        b
+      }
+
       val res = e1 <= e2 && rel1.forall(r1 => {
-        lteRel(List(r1), rel2) || {
+        lteRelOne(r1, rel2) || {
           r1 match {
+            case RelEffect(ParamLoc(sym), None) if sym.isByNameParam =>
+              // by-name parameter references can have any effect
+              top <= e2
+
+            case RelEffect(loc, None) =>
+              r1.applyMethods.forall(checkRelEff)
+
             case RelEffect(loc, Some(fun)) =>
               if (localVisited(fun)) true
-              else {
-                val resTp = fun.info.finalResultType
-                val eFun = fromAnnotation(resTp)
-                val relFun = relFromAnnotation(resTp)
-                val (b, v) = effectsConform(eFun, relFun, e2, rel2, localVisited)
-                localVisited = v
-                b
-              }
-
-            case _ =>
-              // @TODO: here we'd need to get all methods of the type of `loc` and check if their effects conform
-              // @TODO: should issue a implementation restriction warning
-              lattice.top <= e2
+              else checkRelEff(fun)
           }
         }
       })
@@ -630,7 +635,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
 
       } else {
         tree match {
-          case ddef @ DefDef(_, _, _, _, tpt @ TypeTree(), rhs) if !rhs.isErroneous =>
+          case ddef @ DefDef(_, _, _, _, tpt @ TypeTree(), rhs) =>
             val meth = tree.symbol
 
             val expectedEffect: Option[Effect] = {

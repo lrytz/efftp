@@ -129,7 +129,8 @@ trait Infer { self: EffectDomain =>
    * is defined. Instead of overriding this methods, effect domains should override `computeEffectImpl`.
    */
   final def computeEffect(tree: Tree, ctx: EffectContext): Effect = {
-    checkConform(computeEffectImpl(tree, ctx), tree, ctx)
+    if (tree.isErroneous) bottom
+    else checkConform(computeEffectImpl(tree, ctx), tree, ctx)
   }
 
 
@@ -264,26 +265,31 @@ trait Infer { self: EffectDomain =>
           case RelEffect(ParamLoc(param), None) if param.isByNameParam =>
             byNameEffs.getOrElse(param, top)
 
-          case RelEffect(paramLoc, Some(fun)) if (argtps contains paramLoc) =>
+          case RelEffect(paramLoc, funOpt) if (argtps contains paramLoc) =>
             argtps(paramLoc) match {
-              case (tp, Some(argLoc)) if lteRelOne(RelEffect(argLoc, Some(fun)), ctx.relEnv) =>
+              case (tp, Some(argLoc)) if lteRelOne(RelEffect(argLoc, funOpt), ctx.relEnv) =>
                 // @TODO: document, example. if a parameter is forwarded to another method as parameter, detect rel effects
                 bottom
               case (tp, _) =>
-                val funSym = tp.member(fun.name).suchThat(m => m.overriddenSymbol(fun.owner) == fun || m == fun)
-                latent(funSym, Map(), Map(), ctx)
+                val funSyms = funOpt match {
+                  case Some(fun) =>
+                    List(tp.member(fun.name).suchThat(m => m.overriddenSymbol(fun.owner) == fun || m == fun))
+                  case None =>
+                    tp.member(nme.apply).alternatives
+                }
+                val funEffs = funSyms.map(latent(_, Map(), Map(), ctx))
+                joinAll(funEffs: _*)
             }
 
           case RelEffect(_, Some(fun)) =>
             latent(fun, Map(), Map(), ctx)
 
-          case _ =>
-            // todo: union of effects of all methods
-            top
+          case RelEffect(_, None) =>
+            val applyEffs = r.applyMethods.map(latent(_, Map(), Map(), ctx))
+            joinAll(applyEffs: _*)
         }
       }
       concrete u (expandedRelEff :\ bottom)(_ u _)
     }
   }
-
 }

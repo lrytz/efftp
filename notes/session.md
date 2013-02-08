@@ -9,6 +9,10 @@
 
 - syntax for effect casts
 
+- overrides are not checked! we can override and have a larger effect.
+
+- effects of pattern matching trees
+
 ## Testing
 
 - check todo's in existing test suites (need neg tests)
@@ -27,8 +31,6 @@
 
 
 ## Features
-
-- effects of pattern matching trees
 
 - to know if a method has an annotated type or not, we currently check if it has a lazy type. this is not correct: also
   methods with annotated return types have a lazy type, just instead of type-checking the rhs, completion will
@@ -55,8 +57,6 @@
     - if there is `@pure` or `@rel(..)`, don't add `@noIo`
     - if there is no `@pure` or `@rel(..)`, don't add `@io`
     - BUT add effect annotations when necessary: namely to methods with explicit return type, but without effect annotations.
-
-- refchecks should verify that all overrides are valid - test that!
 
 
 ## pushing argument types into @rel annotations of result types
