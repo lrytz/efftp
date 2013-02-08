@@ -10,6 +10,18 @@ class ClassesSuite extends FunSuite {
 
   /*
 
+  class C {
+    def foo(): Int @pure = 1
+  }
+
+  class D extends C {
+    override def foo(): Int @io = 2
+  }
+
+  */
+
+  /*
+
   // effect relative to `this`
 
   class C {

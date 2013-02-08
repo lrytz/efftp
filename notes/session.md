@@ -2,8 +2,6 @@
 
 - syntax for effect casts, important when interfacing with other libraries.
 
-- overrides are not checked! we can override and have a larger effect.
-
 - effects of pattern matching trees
 
 ## Testing

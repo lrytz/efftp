@@ -13,8 +13,9 @@ trait TypeCheckerPlugin { self: EffectChecker =>
   global.addAnnotationChecker(annotChecker)
   analyzer.addAnalyzerPlugin(typerPlugin)
 
+  // overrides are checked during refChecks
   def pluginIsActive(): Boolean =
-    global.phase.id <= currentRun.picklerPhase.id
+    global.phase.id <= currentRun.refchecksPhase.id
 
   object annotChecker extends AnnotationChecker {
 
