@@ -1,7 +1,5 @@
 # next up
 
-- syntax for effect casts, important when interfacing with other libraries.
-
 - effects of pattern matching trees
 
 ## Testing
@@ -23,13 +21,7 @@
 
 ## Features
 
-- to know if a method has an annotated type or not, we currently check if it has a lazy type. this is not correct: also
-  methods with annotated return types have a lazy type, just instead of type-checking the rhs, completion will
-  type-check the the return type tree.
-
-- "Annotated" tree should trigger effect checking if the annotated type has effect annotations
-
-- refine the inference of a tree's effect. e.g. support nested definitions:
+- refine the inference of a tree's effect:
   - effects of annotation expressions should not be included in the effect of a tree (are they?)
 
 - @infer annotation to allow inferring effects on demand (both for return types and constructors)
@@ -47,7 +39,7 @@
 - add effect annotations only when necessary
     - if there is `@pure` or `@rel(..)`, don't add `@noIo`
     - if there is no `@pure` or `@rel(..)`, don't add `@io`
-    - BUT add effect annotations when necessary: namely to methods with explicit return type, but without effect annotations.
+    - BUT: always add some effect annotation, namely to methods with explicit return type and without effect annotations
 
 
 ## pushing argument types into @rel annotations of result types

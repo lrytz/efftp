@@ -7,8 +7,17 @@ import scala.annotation.effects._
 
 class ClassesSuite extends FunSuite {
 
+  /*
+  // effect casts: using ascription
+
+  def foo(xs: Int*): Int @pure = {
+    val x = 1
+    (x /: xs)(_ + _): @pure
+  }
+  */
 
   /*
+  // check overrides
 
   class C {
     def foo(): Int @pure = 1

@@ -130,7 +130,14 @@ trait Infer { self: EffectDomain =>
    */
   final def computeEffect(tree: Tree, ctx: EffectContext): Effect = {
     if (tree.isErroneous) bottom
-    else checkConform(computeEffectImpl(tree, ctx), tree, ctx)
+    else tree match {
+      /*** Type Ascriptions: if they contain effect annotations, they are treated as effect casts ***/
+      case Typed(expr, tpt) if existsEffectAnnotation(tpt.tpe.annotations) =>
+        fromAnnotation(tpt.tpe)
+
+      case _ =>
+        checkConform(computeEffectImpl(tree, ctx), tree, ctx)
+    }
   }
 
 
