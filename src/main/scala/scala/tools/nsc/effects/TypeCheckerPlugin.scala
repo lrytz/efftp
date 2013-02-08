@@ -307,6 +307,18 @@ trait TypeCheckerPlugin { self: EffectChecker =>
     }
 
     /**
+     * The comment below applies to scala/scala branch "master", i.e. the upcoming 2.11. This template desugaring
+     * scheme used to be also in 2.10.x, but it got reverted in PR #2068 for binary compatibility. The differences
+     * are that in the old scheme, i.e. in 2.10
+     *
+     *   - Template parents do NOT have value arguments, only type arguments
+     *   - Type checking the parent types does not produce any attachments
+     *   - The tree of the primary constructor has the correct super constructor call from the beginning, there
+     *     is no `pendingSuperCall`. The value parameters of the super constructor call are already there.
+     *   - The side-effect of assigning a type to the pre-super fields is now done by `parentTypes` in the old
+     *     scheme (`typedPrimaryConstrBody` in the new scheme)
+     *
+     *
      * Primary constructors get a very special treatment in parsing, naming and typing. Here's an example:
      *
      * class C(param: Int) extends { val early = this } with D[T](arg) with T { self: ST =>
@@ -318,7 +330,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
      *   }
      * }
      *
-     * After parsing, the class is represented as follows (see `def Template` in scala.tools.nsc.ast.Trees)
+     * After parsing, the class is represented as follows (see def Template` in scala.tools.nsc.ast.Trees)
      *
      * ClassDef(C) { Template(D[T](arg), T) {
      *   // "self" field of template
@@ -410,6 +422,8 @@ trait TypeCheckerPlugin { self: EffectChecker =>
 
         val typedParents = analyzer.newTyper(templateTyper.context.outer).parentTypes(templ)
 
+        val constrBody = ddef.rhs
+        /* FOR 2.11, NEED THE FOLLOWING
         val constrBody = ddef.rhs match {
           case Block(earlyVals :+ global.pendingSuperCall, unit) =>
             val argss = analyzer.superArgs(typedParents.head) getOrElse Nil
@@ -419,6 +433,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             Block(earlyVals :+ superCall, unit)
           case rhs => rhs
         }
+        */
         inferPrimaryConstrEff(constrSym, constrBody, defTyper, templ, templateTyper,
                               typedParents, alreadyTyped = false, expected = None)
       }
