@@ -8,6 +8,29 @@ import scala.annotation.effects._
 class ClassesSuite extends FunSuite {
 
 
+  /*
+
+  // effect relative to `this`
+
+  class C {
+    // top effect
+    def bap(): Unit = ()
+
+    def likeBap(): Unit @rel(this.bap()) = {
+      this.bap()
+    }
+  }
+
+  class D extends C {
+    override def bap(): Unit @pure = ()
+  }
+
+  def lkdsjfl: Unit @pure = (new D).likeBap()
+//  def lkdsdfl: Unit @pure = (new C).likeBap()
+
+  */
+
+
 /*
 OK now, only one error message
   def twice(f: Int => Int, x: Int): Int @rel(f.apply(%)) = f(f(x))

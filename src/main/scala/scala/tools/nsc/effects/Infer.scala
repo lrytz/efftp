@@ -197,8 +197,11 @@ trait Infer { self: EffectDomain =>
       if (hasRelativeEffect(fun, ctx)) bottom
       else {
         val paramLocs = params.map(ParamLoc)
-        // @TODO: should probably add ThisLoc to the map. can the type of this ever be more specific?
-        latent(funSym, paramLocs.zip(args.map(argTpeAndLoc)).toMap, byNameEffs, ctx)
+        val thisLocMapping = fun match {
+          case Select(qual, _) => Some(ThisLoc(funSym.owner) -> argTpeAndLoc(qual))
+          case _ => None
+        }
+        latent(funSym, paramLocs.zip(args.map(argTpeAndLoc)).toMap ++ thisLocMapping, byNameEffs, ctx)
       }
     }
     funEff u (byValEffs :\ bottom)(_ u _) u lat

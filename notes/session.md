@@ -1,13 +1,6 @@
 # next up
 
-- @rel(f) should mean @rel(f.apply(%)), with as many %'s as necessary, if there's only one apply method. otherwise,
-  it should be invalid. forget about "all effects of all members of f"
-
-- relative effects with `this` receiver
-
-- work on examples towards collections
-
-- syntax for effect casts
+- syntax for effect casts, important when interfacing with other libraries.
 
 - overrides are not checked! we can override and have a larger effect.
 
