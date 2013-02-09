@@ -7,6 +7,21 @@ import scala.annotation.effects._
 
 class ClassesSuite extends FunSuite {
 
+
+  trait Nums
+  case class One(x: Int) extends Nums
+  case class Two(x: Int, y: Int) extends Nums
+
+  def foo(a: Nums): Int @pure = a match {
+    case One(x) => x
+    case Two(x, y) => x + y
+  }
+
+  def sohjew: Int @pure = foo(Two(1,2))
+
+
+
+
   /*
   // effect casts: using ascription
 

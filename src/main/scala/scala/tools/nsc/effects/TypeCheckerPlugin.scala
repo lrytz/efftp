@@ -707,7 +707,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
       }
     }
 
-    EffectContext(expected, relEnv, effectReporter(typer), detailsMsg)
+    EffectContext(expected, relEnv, effectReporter(typer), detailsMsg, patternMode = false)
   }
 
   def changeErrorMessage(err: AbsTypeError, msg: String): AbsTypeError = new AbsTypeError {

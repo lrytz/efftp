@@ -35,10 +35,10 @@ abstract class BiEffectDomain extends EffectDomain {
   // TODO: avoid re-creating new domain contexts on every invocation of `computeEffect` !!
 
   private def d1Ctx(ctx: EffectContext): d1.EffectContext = {
-    d1.EffectContext(ctx.expected.map(_._1), ctx.relEnv.asInstanceOf[List[d1.RelEffect]], ctx.reporter.asInstanceOf[d1.EffectReporter], ctx.errorInfo)
+    d1.EffectContext(ctx.expected.map(_._1), ctx.relEnv.asInstanceOf[List[d1.RelEffect]], ctx.reporter.asInstanceOf[d1.EffectReporter], ctx.errorInfo, ctx.patternMode)
   }
   private def d2Ctx(ctx: EffectContext): d2.EffectContext = {
-    d2.EffectContext(ctx.expected.map(_._2), ctx.relEnv.asInstanceOf[List[d2.RelEffect]], ctx.reporter.asInstanceOf[d2.EffectReporter], ctx.errorInfo)
+    d2.EffectContext(ctx.expected.map(_._2), ctx.relEnv.asInstanceOf[List[d2.RelEffect]], ctx.reporter.asInstanceOf[d2.EffectReporter], ctx.errorInfo, ctx.patternMode)
   }
 
   override def computeEffectImpl(tree: Tree, ctx: EffectContext): Effect =

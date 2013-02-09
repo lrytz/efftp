@@ -15,12 +15,27 @@ trait DefaultEffects { self: EffectDomain =>
     m.requiredClass[scala.Equals],
     d.SerializableClass
   ) ++
-    d.ScalaValueClasses
+    d.ScalaValueClasses ++
+    d.TupleClass.toList
+
+  lazy val classesWithPureConstructors: List[Symbol] = List(
+  ) ++
+    d.AbstractFunctionClass.toList ++
+    d.FunctionClass.toList
+
+
+
+  lazy val pureMethods: List[Symbol => Boolean] = List(
+    s => s.isConstructor && classesWithPureConstructors.contains(s.owner)
+  )
+
 
   def defaultInvocationEffect(fun: Symbol): Option[Effect] = {
     val owner = fun.owner
 
-    if(classesWithPureMethods.contains(owner)) {
+    if (pureMethods.exists(p => p(fun))) {
+      Some(bottom)
+    } else if (classesWithPureMethods.contains(owner)) {
       Some(bottom)
     } else {
       None

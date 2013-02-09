@@ -37,7 +37,8 @@ trait Infer { self: EffectDomain =>
   case class EffectContext(expected: Option[Effect],
                            relEnv: List[RelEffect],
                            reporter: EffectReporter,
-                           errorInfo: Option[String])
+                           errorInfo: Option[String],
+                           patternMode: Boolean)
 
 
   /**
@@ -62,6 +63,22 @@ trait Infer { self: EffectDomain =>
   def computeEffectImpl(tree: Tree, ctx: EffectContext): Effect = {
     lazy val sym = tree.symbol
     tree match {
+
+      /*** Pattern Matching, some special cases ***/
+
+      case _: CaseDef =>
+        computeChildEffects(tree, ctx.copy(patternMode = true))
+
+      case Apply(TypeTree(), args) =>
+        // case class constructor patterns
+        assert(ctx.patternMode, s"Apply outside patterns with fun being a TypeTree: $tree")
+        computeChildEffects(tree, ctx)
+
+      case UnApply(unapp, args) =>
+        // assert that the unapply is "qual.<unapply-selector>"
+        val Apply(_, List(Ident(nme.SELECTOR_DUMMY))) = unapp
+        computeApplyEffect(Apply(unapp, args), ctx)
+
 
       /*** Method Invocations ***/
 
@@ -118,8 +135,7 @@ trait Infer { self: EffectDomain =>
       /*** Otherwise, recurse into Subtrees ***/
 
       case _ =>
-        val childEffs = computeChildEffects(tree, ctx)
-        joinAll(childEffs: _*)
+        computeChildEffects(tree, ctx)
     }
   }
 
@@ -152,13 +168,14 @@ trait Infer { self: EffectDomain =>
       override def traverse(tree: Tree) { res += computeEffect(tree, ctx) }
 
       /* `super.traverse` calls `traverse` for each subtree of `tree` */
-      def computeChildEffects(tree: Tree): List[Effect] = {
+      def traverseChilds(tree: Tree): List[Effect] = {
         super.traverse(tree)
         res.toList
       }
     }
 
-    new ChildEffectsTraverser(ctx).computeChildEffects(tree)
+    val childEffs = new ChildEffectsTraverser(ctx).traverseChilds(tree)
+    joinAll(childEffs: _*)
   }
 
   /**
