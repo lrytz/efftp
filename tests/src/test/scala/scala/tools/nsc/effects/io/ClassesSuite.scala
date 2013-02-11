@@ -5,20 +5,47 @@ import scala.tools.nsc.effects.testing.TestMacros._
 
 import scala.annotation.effects._
 
+
 class ClassesSuite extends FunSuite {
 
+/*
+  // repeated parameters
+  def huh(x: Int, y: Int*): Int @pure = 1
+  def slkjdf: Int @pure = huh(1,2,3,{println()+1})
 
-  trait Nums
-  case class One(x: Int) extends Nums
-  case class Two(x: Int, y: Int) extends Nums
+  def hoh(x: Int, y: Int*)(f: Int => Int): Int @rel(f) = f(x)
+  def lksjs: Int @pure = hoh(1,2,3)(x => x + 1)
+  def lksjd: Int @pure = hoh(1,2,3)(x => {println(); x + 1})
+  def hih(g: Int => Int): Int @rel(g) = hoh(1)(g)
+*/
 
-  def foo(a: Nums): Int @pure = a match {
-    case One(x) => x
-    case Two(x, y) => x + y
+  /*
+  // defaults
+  def fip(x: Int @pure = 1 ) = x
+  def slenw: Int @pure = fip()
+  fip({println(); 1})
+
+  class DefClass(x: Int @pure = 1) {
+    def y = x
   }
+  def ekown: Int @pure = new DefClass().y
 
-  def sohjew: Int @pure = foo(Two(1,2))
+  // gives error
+  def flkj(x: Int @pure = {println(); 1})
+  */
 
+  /*
+    trait Nums
+    case class One(x: Int) extends Nums
+    case class Two(x: Int, y: Int) extends Nums
+
+    def foo(a: Nums): Int @pure = a match {
+      case One(x) => x
+      case Two(x, y) => x + y
+    }
+
+    def sohjew: Int @pure = foo(Two(1,2))
+  */
 
 
 
@@ -255,3 +282,15 @@ OK now, only one error message
 //  }
   */
 }
+
+/*
+// had no effect error when on top-level, can have Ident tree to select a module
+class Flupi {
+  def foo: Int @pure = tee.x
+}
+
+object tee {
+  println()
+  val x: Int = 1
+}
+*/

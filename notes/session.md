@@ -1,17 +1,6 @@
 # next up
 
-- repeated parameters, `computeApplyEffect` makes some zip of params and args.
-  is it OK if they don't have the same lenght? or has this already been fixed by
-  the typer and a Seq is passed?
-
-- check if inference is ok / correct for:
-  - try-catch (should be ok with patterns)
-  - returns
-  - for comprehensions
-  - throws
-  - xs: _*  method arguments (a Typed tree)
-  - while loops
-  - xml expressions (at least don't crash on them), xml patterns
+- allow user to specify default effects
 
 ## Testing
 
@@ -32,14 +21,24 @@
 
 ## Features
 
+- default argument effects need to be annotated on the parameter type. otherwise default getters have top effect.
+  not too intuitive.
+
+- check if inference is ok / correct for:
+  - try-catch (should be ok with patterns)
+  - returns
+  - for comprehensions
+  - throws
+  - xs: _*  method arguments (a Typed tree)
+  - while loops
+  - xml expressions (at least don't crash on them), xml patterns
+  - effects of annotation expressions should not be included in the effect of a tree (are they?)
+
 - need to have more details **where** an effect mismatch comes from
   - apply expression: if it comes from qual, arg, latent, relative, ...
   - constructor effects: if it comes from super constructor call? problem was with
     case companion constructor, generated code, constructor effect inferred impure because
     AbstractFunction parent. effect when selecting the object...
-
-- refine the inference of a tree's effect:
-  - effects of annotation expressions should not be included in the effect of a tree (are they?)
 
 - @infer annotation to allow inferring effects on demand (both for return types and constructors)
 
