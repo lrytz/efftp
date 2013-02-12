@@ -256,6 +256,13 @@
       <JAVADOC />
       <SOURCES />
     </library>
+    <library name="spring-core-3.2.1.RELEASE">
+      <CLASSES>
+        <root url="jar://$USER_HOME$/.ivy2/cache/org.springframework/spring-core/jars/spring-core-3.2.1.RELEASE.jar!/" />
+      </CLASSES>
+      <JAVADOC />
+      <SOURCES />
+    </library>
   </component>
 </project>
 

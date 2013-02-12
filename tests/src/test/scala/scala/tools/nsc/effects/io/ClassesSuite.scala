@@ -1,23 +1,23 @@
-package scala.tools.nsc.effects.io
+package scala.tools.nsc.effects
+package io
 
-import org.scalatest.FunSuite
 import scala.tools.nsc.effects.testing.TestMacros._
 
 import scala.annotation.effects._
 
+class ClassesSuite extends PosNegSuite {
+//  override val updateCheck: List[String] = List("constructorInferenceNeg")
 
-class ClassesSuite extends FunSuite {
+  /*
+    // repeated parameters
+    def huh(x: Int, y: Int*): Int @pure = 1
+    def slkjdf: Int @pure = huh(1,2,3,{println()+1})
 
-/*
-  // repeated parameters
-  def huh(x: Int, y: Int*): Int @pure = 1
-  def slkjdf: Int @pure = huh(1,2,3,{println()+1})
-
-  def hoh(x: Int, y: Int*)(f: Int => Int): Int @rel(f) = f(x)
-  def lksjs: Int @pure = hoh(1,2,3)(x => x + 1)
-  def lksjd: Int @pure = hoh(1,2,3)(x => {println(); x + 1})
-  def hih(g: Int => Int): Int @rel(g) = hoh(1)(g)
-*/
+    def hoh(x: Int, y: Int*)(f: Int => Int): Int @rel(f) = f(x)
+    def lksjs: Int @pure = hoh(1,2,3)(x => x + 1)
+    def lksjd: Int @pure = hoh(1,2,3)(x => {println(); x + 1})
+    def hih(g: Int => Int): Int @rel(g) = hoh(1)(g)
+  */
 
   /*
   // defaults

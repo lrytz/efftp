@@ -19,6 +19,7 @@
     <orderEntry type="library" name="scala-effects" level="project" />
     <orderEntry type="module" module-name="effects" />
     <orderEntry type="library" name="scalatest" level="project" />
+    <orderEntry type="library" name="spring-core-3.2.1.RELEASE" level="project" />
   </component>
 </module>
 

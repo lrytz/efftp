@@ -95,7 +95,7 @@ trait Infer { self: EffectDomain =>
 
       /*** Modules, Lazy Vals and By-Name Params ***/
 
-      case (_: Ident | _: Select) if sym.isModule =>
+      case (_: Ident | _: Select) if (sym.isModule && !sym.isPackage) =>
         // selection of a module has the effect of the module constructor
         val constr = sym.moduleClass.primaryConstructor
         latent(constr, Map(), Map(), ctx)

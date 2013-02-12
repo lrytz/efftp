@@ -2,24 +2,49 @@
 
 - allow user to specify default effects
 
+  - a compiler plugin written by users?
+
+    def defaultEffect(sym: Symbol, domain: EffectDomain): Option[domain.Effect] = domain match {
+      case io: IODomain =>
+        ...
+      case _ =>
+        None
+    }
+
+  - stub files
+
+
+- support for multiple domains, how to assemble them? have a separate jar for each domain?
+    - compiler flags to enable / disable
+
+
 ## Testing
 
 - check todo's in existing test suites (need neg tests)
     - have a look at DirectTest in partest (https://github.com/JamesIry/scala/commit/ee0cf0faadc29652b631f19c23e78ab881968070)
 
-- testing framework: test that something compiles
-
-- testing framework: test that something doesn't compile with a certain error message (or, with a certain expected / found type)
-    - example in that direction: test that the plugin doesn't crash when there are compilation errors. one example
-      is in RelSuite, when a method is not defined, inferEffect used to crash with "NoSymbol has no owner". The fix
-      for this cannot be tested with tests that compile...
-    - two options to investigate: 1. use partest, 2. create a compiler instance and give it a fake source file
-      (triple quote). That would be much nicer in fact.
-
 - testing framework: check inferred effect: give a tree and the expected effect
+
+- testing framework for effect domain authors. we should also use that for testing the core plugin
 
 
 ## Features
+
+- better error messages:
+  - need to have more details **where** an effect mismatch comes from
+    - apply expression: if it comes from qual, arg, latent, relative, ...
+    - constructor effects: if it comes from super constructor call? problem was with
+      case companion constructor, generated code, constructor effect inferred impure because
+      AbstractFunction parent. effect when selecting the object...
+
+  - effects are printed as their representation - should be translated to something understandable, or to the
+    corresponding annotations
+
+  - multiple effect domains: give specific effect mismatch errors, which effect in which domain
+
+  - type mismatch errors (for function types, refinements, ...): ideally give details *where* in the type
+    the effects don't match, which method / member.
+
 
 - default argument effects need to be annotated on the parameter type. otherwise default getters have top effect.
   not too intuitive.
@@ -33,12 +58,6 @@
   - while loops
   - xml expressions (at least don't crash on them), xml patterns
   - effects of annotation expressions should not be included in the effect of a tree (are they?)
-
-- need to have more details **where** an effect mismatch comes from
-  - apply expression: if it comes from qual, arg, latent, relative, ...
-  - constructor effects: if it comes from super constructor call? problem was with
-    case companion constructor, generated code, constructor effect inferred impure because
-    AbstractFunction parent. effect when selecting the object...
 
 - @infer annotation to allow inferring effects on demand (both for return types and constructors)
 

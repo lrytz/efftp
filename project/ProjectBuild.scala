@@ -19,6 +19,8 @@ object ProjectBuild extends Build {
       deps.filterNot(_.toString.startsWith(scalaLibraryModuleString))
     },
 
+    libraryDependencies += "org.springframework" % "spring-core" % "3.2.1.RELEASE" % "test",
+
     // add the jars from the scala distro to the classpath
     (unmanagedJars in Compile) <<= (unmanagedJars in Compile, scalaHome) map { (jars, homeDir) =>
       val scalaJars = homeDir.get / "lib" * "*.jar"
@@ -48,8 +50,16 @@ object ProjectBuild extends Build {
 
     (test in Test) <<= (test in Test).dependsOn(test in (pluginProject, Test)),
 
-    scalacOptions <+= (packageBin in (pluginProject, Compile)) map { pluginJar =>
-      "-Xplugin:"+ pluginJar.getAbsolutePath
-    }
+    fork in test := true,
+
+    javaOptions in test <+= (packageBin in (pluginProject, Compile)) map { pluginJar =>
+      "-DeffectsPlugin.jarFile="+ pluginJar.getAbsolutePath
+    },
+
+   scalacOptions <++= (packageBin in (pluginProject, Compile)) map { pluginJar => Seq(
+     "-Xplugin:"+ pluginJar.getAbsolutePath,
+     "-P:effects:domains:io"
+   )}
+
   ) settings (sharedSettings: _*) dependsOn (pluginProject)
 }

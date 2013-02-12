@@ -1,0 +1,10 @@
+newSource:4: error: effect type mismatch;
+ found   : true
+ required: false
+  def t1: C1 @pure = new C1()
+                     ^
+newSource:5: error: effect type mismatch;
+ found   : true
+ required: false
+  def t2: C2 @pure = new C2()
+                     ^

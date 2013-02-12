@@ -1,4 +1,3 @@
-
 target/
 /ide/out/
 /lib/
@@ -7,3 +6,5 @@ target/
 /sandbox/
 
 *.iws
+
+.DS_Store
