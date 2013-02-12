@@ -1,0 +1,70 @@
+newSource:4: error: effect type mismatch;
+ found   : true
+ required: false
+  def t1: C1 @pure = new C1()
+                     ^
+newSource:5: error: effect type mismatch;
+ found   : true
+ required: false
+  def t2: C2 @pure = new C2()
+                     ^
+newSource:6: error: effect type mismatch;
+ found   : true
+ required: false
+  def t3: C3 @pure = new C3()
+                     ^
+newSource:7: error: effect type mismatch;
+ found   : true
+ required: false
+  def t4: C4 @pure = new C4()
+                     ^
+newSource:8: error: effect type mismatch;
+ found   : true
+ required: false
+  def t5: C5 @pure = new C5(1)
+                     ^
+newSource:9: error: effect type mismatch;
+ found   : true
+ required: false
+  def t6: C6 @pure = new C6()
+                     ^
+newSource:10: error: effect type mismatch;
+ found   : true
+ required: false
+  def t7: C7 @pure = new C7(10)
+                     ^
+newSource:14: error: effect type mismatch;
+ found   : true
+ required: false
+  def compObj: Cc.type @pure = Cc
+                               ^
+newSource:15: error: effect type mismatch;
+ found   : true
+ required: false
+  def toStr: String @pure = Cc.toString
+                            ^
+newSource:16: error: effect type mismatch;
+ found   : true
+ required: false
+  def mkC: Cc @pure = Cc(1)
+                      ^
+newSource:16: error: effect type mismatch;
+ found   : true
+ required: false
+  def mkC: Cc @pure = Cc(1)
+                        ^
+newSource:17: error: effect type mismatch;
+ found   : true
+ required: false
+  def testF: Int @pure = Cc.f
+                         ^
+newSource:18: error: effect type mismatch;
+ found   : true
+ required: false
+  def ccConstr: Cc @pure = new Cc(10)
+                           ^
+newSource:64: error: effect type mismatch;
+ found   : true
+ required: false
+  def foo: Int @pure = tee.x
+                       ^

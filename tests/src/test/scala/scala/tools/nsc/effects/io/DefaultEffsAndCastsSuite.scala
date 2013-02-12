@@ -5,7 +5,7 @@ import scala.tools.nsc.effects.testing.TestMacros._
 
 import scala.annotation.effects._
 
-class DefaultEffsSuite extends FunSuite {
+class DefaultEffsAndCastsSuite extends FunSuite {
   test("pure and noIo interact") {
     val t1 = new { def t: Int @noIo = 0 }
     val t2 = new { def t: Int @pure = 0 }
@@ -54,5 +54,12 @@ class DefaultEffsSuite extends FunSuite {
     assert(isSubtype[{def t: Int @rel() @io}](t1))
     assert(isSubtype[{def t: Int @rel() @io}](t2))
     assert(isSubtype[{def t: Int @rel() @io}](t3))
+  }
+
+
+  // test effect casts
+  def foo(xs: Int*): Int @pure = {
+    val x = 1
+    (x /: xs)(_ + _): @pure
   }
 }

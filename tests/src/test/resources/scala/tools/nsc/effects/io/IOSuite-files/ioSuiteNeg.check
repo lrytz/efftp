@@ -1,0 +1,6 @@
+newSource:6: error: type mismatch;
+ found   : AnyRef{def f: A @scala.annotation.effects.io}
+ required: AnyRef{def f: Object @scala.annotation.effects.noIo}
+Type error occured while type checking a tree for effect inference.
+  val ptOrLub2: { def f: Object @noIo } = if (cnd) new { def f: A @io = null } else new { def f: B @noIo = null }
+                                                   ^

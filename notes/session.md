@@ -1,31 +1,32 @@
 # next up
 
+- exceptions
+
+- state effects
+
+
 - allow user to specify default effects
-
   - a compiler plugin written by users?
-
     def defaultEffect(sym: Symbol, domain: EffectDomain): Option[domain.Effect] = domain match {
       case io: IODomain =>
         ...
       case _ =>
         None
     }
-
   - stub files
 
 
+- imports within block cause crashes
+
+- crash on this, rel(x) refers to the field
+  class C(x: => Int) {
+     @rel(x) type constructorEffect
+     def foo(): Int @rel(x) = x
+     lazy val v: Int @rel(x) = x
+   }
+
 - support for multiple domains, how to assemble them? have a separate jar for each domain?
     - compiler flags to enable / disable
-
-
-## Testing
-
-- check todo's in existing test suites (need neg tests)
-    - have a look at DirectTest in partest (https://github.com/JamesIry/scala/commit/ee0cf0faadc29652b631f19c23e78ab881968070)
-
-- testing framework: check inferred effect: give a tree and the expected effect
-
-- testing framework for effect domain authors. we should also use that for testing the core plugin
 
 
 ## Features
@@ -75,6 +76,8 @@
     - if there is `@pure` or `@rel(..)`, don't add `@noIo`
     - if there is no `@pure` or `@rel(..)`, don't add `@io`
     - BUT: always add some effect annotation, namely to methods with explicit return type and without effect annotations
+
+- testing framework for effect domain authors. we should also use that for testing the core plugin
 
 
 ## pushing argument types into @rel annotations of result types

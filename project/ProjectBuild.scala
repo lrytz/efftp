@@ -50,11 +50,15 @@ object ProjectBuild extends Build {
 
     (test in Test) <<= (test in Test).dependsOn(test in (pluginProject, Test)),
 
+    // scala compiler seems to crash on diff_match_patch.java - a problem of the effects plugin?
+    compileOrder in Test := CompileOrder.JavaThenScala,
+
     fork in test := true,
 
-    javaOptions in test <+= (packageBin in (pluginProject, Compile)) map { pluginJar =>
-      "-DeffectsPlugin.jarFile="+ pluginJar.getAbsolutePath
-    },
+    javaOptions in test <++= (packageBin in (pluginProject, Compile)) map { pluginJar => Seq(
+      "-DeffectsPlugin.jarFile="+ pluginJar.getAbsolutePath,
+      "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5006"
+    )},
 
    scalacOptions <++= (packageBin in (pluginProject, Compile)) map { pluginJar => Seq(
      "-Xplugin:"+ pluginJar.getAbsolutePath,

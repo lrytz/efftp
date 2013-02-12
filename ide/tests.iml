@@ -13,6 +13,7 @@
     <exclude-output />
     <content url="file://$MODULE_DIR$/../tests">
       <sourceFolder url="file://$MODULE_DIR$/../tests/src/test/scala" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/../tests/src/test/java" isTestSource="true" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

@@ -8,6 +8,10 @@ import java.net.URI
 import java.io.{PrintWriter, File}
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver
 
+import name.fraser.neil.plaintext.diff_match_patch
+import scala.collection.JavaConverters._
+import diff_match_patch.Operation._
+
 /**
  * A ScalaTest suite for testing the compiler.
  */
@@ -41,7 +45,7 @@ abstract class PosNegSuite extends FunSuite {
           case NegTest(name, src, check) =>
             val (res, log) = compiler.compile(readFile(src))
             val checkStr = readFile(check)
-            lazy val msg = s"expected:\n$checkStr\n\nfound:\n$log\n."
+            lazy val msg = s"diff:\n${diff(checkStr, log)}\n."
             assert(!res && log == checkStr, msg)
         }
       }
@@ -53,7 +57,9 @@ abstract class PosNegSuite extends FunSuite {
 
   val sep = sys.props("file.separator")
 
-  val testsSubdir = getClass.getCanonicalName.replace(".", sep)
+  // adding "-files" to avoid the problem of having a .class file and a directory (i.e. package) with the
+  // same name in the target directory.
+  val testsSubdir = getClass.getCanonicalName.replace(".", sep) + "-files"
 
   val tests: List[Test] = {
     val resolver = new PathMatchingResourcePatternResolver(getClass.getClassLoader)
@@ -140,6 +146,26 @@ abstract class PosNegSuite extends FunSuite {
   }
 
   def readFile(uri: URI) = scala.io.Source.fromURI(uri).mkString
+
+  def diff(a: String, b: String): String = {
+    def prepend(str: String, prep: String) = str.lines.map(prep + _).mkString("\n")
+
+    val dmp = new diff_match_patch()
+    val df = dmp.diff_main(a, b)
+    dmp.diff_cleanupSemantic(df)
+    val diffs = df.asScala
+
+    val res = new collection.mutable.StringBuilder()
+    for (d <- diffs) {
+      d.operation match {
+        case INSERT => res append prepend(d.text, "+")
+        case DELETE => res append prepend(d.text, "-")
+//        case EQUAL  => res append d.text
+        case _      => ()
+      }
+    }
+    res.toString
+  }
 
   runPosNeg()
 }

@@ -1,0 +1,24 @@
+newSource:5: error: Cyclic reference involving value z.
+This error occured while inferring the effect of value z, the effect needs to be annotated.
+If this error is reported at a field, the primary constructor needs an effect annotation.
+  val z = new K2a()
+          ^
+newSource:17: error: type mismatch;
+ found   : String("")
+ required: K
+Type error occured while type checking a tree for effect inference.
+  val y: K = ""
+             ^
+newSource:20: error: Cyclic reference involving constructor K.
+This error occured while inferring the effect of constructor K, the effect needs to be annotated.
+If this error is reported at a field, the primary constructor needs an effect annotation.
+  val x: K = new K()
+             ^
+newSource:10: error: effect type mismatch;
+ found   : true
+ required: false
+  def mk2: K1 @pure = new K1(1)
+                      ^
+newSource:40: error: illegal cyclic reference involving constructor K2
+  val z = new K2()
+          ^

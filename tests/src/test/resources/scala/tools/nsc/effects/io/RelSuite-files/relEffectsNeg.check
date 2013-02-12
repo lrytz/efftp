@@ -1,0 +1,73 @@
+newSource:4: error: effect type mismatch;
+ found   : true
+ required: false
+  def t1: Unit @pure = (new C).likeBap()
+                                      ^
+newSource:8: error: effect type mismatch;
+ found   : true
+ required: false
+  def plusTwoE(x: Int): Int @pure = twice(x => { println(); x + 1 }, x)
+                                         ^
+newSource:17: error: effect type mismatch;
+ found   : true
+ required: false
+  def t2: Any @pure = foo(x => x).bar(10)
+                                     ^
+newSource:21: error: effect type mismatch;
+ found   : true
+ required: false
+  def t3: Int @pure = new C1(10).foos
+                                 ^
+newSource:22: error: effect type mismatch;
+ found   : true
+ required: false
+  def t4: Int @pure = new C1(10).y
+                                 ^
+newSource:40: error: effect type mismatch;
+ found   : true
+ required: false
+The effect of the primary constructor does not match the annotated effect.
+The mismatch is due to a statement in the class body.
+  y // has effect!
+  ^
+newSource:56: error: type mismatch;
+ found   : t5.aIo.type (with underlying type A @scala.annotation.effects.noIo)
+ required: A{def foo: Int @scala.annotation.effects.noIo}
+  hm0(aIo)
+      ^
+newSource:66: error: type mismatch;
+ found   : Int => Int{def apply(x$1: Int): Int @scala.annotation.effects.rel(g.apply(%)) @scala.annotation.effects.noIo}
+ required: Int => Int{def apply(x: Int): Int @scala.annotation.effects.noIo}
+    needPure(funRel)
+             ^
+newSource:72: error: not found: value f1
+    def t12: (() => Int) {def apply(): Int @noIo} = f1
+                                                    ^
+newSource:81: error: type mismatch;
+ found   : () => Int{def apply(): Int @scala.annotation.effects.rel(a.faa, a.foo) @scala.annotation.effects.noIo}
+ required: () => Int{def apply(): Int @scala.annotation.effects.rel(a.foo)}
+    def tf2: (() => Int) {def apply(): Int @rel(a.foo)} = f1
+                                                          ^
+newSource:82: error: type mismatch;
+ found   : () => Int{def apply(): Int @scala.annotation.effects.rel(a.faa, a.foo) @scala.annotation.effects.noIo}
+ required: () => Int{def apply(): Int @scala.annotation.effects.rel}
+    def tf3: (() => Int) {def apply(): Int @rel()} = f1
+                                                     ^
+newSource:85: error: type mismatch;
+ found   : AnyRef{def t: Int @scala.annotation.effects.rel(a.foo)}
+ required: AnyRef{def t: Int @scala.annotation.effects.rel(a.faa)}
+    def to3: { def t: Int @rel(a.faa) } = o1
+                                          ^
+newSource:86: error: type mismatch;
+ found   : AnyRef{def t: Int @scala.annotation.effects.rel(a.foo)}
+ required: AnyRef{def t: Int @scala.annotation.effects.rel}
+    def to4: { def t: Int @rel() } = o1
+                                     ^
+newSource:98: error: not found: value hm
+    def tm1: Int @noIo = hm(aPure)
+                         ^
+newSource:106: error: effect type mismatch;
+ found   : true
+ required: false
+    def buz: Int @noIo = a.foo // not allowed, a.foo might have an effect.
+                           ^

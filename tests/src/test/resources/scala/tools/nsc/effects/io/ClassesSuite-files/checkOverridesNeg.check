@@ -1,0 +1,8 @@
+newSource:9: error: overriding method foo in class C of type ()Int @scala.annotation.effects.pure;
+ method foo has incompatible type
+  override def foo(): Int @io = 2
+               ^
+newSource:10: error: overriding method bar in class C of type ()Int @scala.annotation.effects.pure;
+ method bar has incompatible type
+  override def bar() = { println(); 2 }
+               ^

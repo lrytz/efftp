@@ -1,0 +1,5 @@
+newSource:6: error: effect type mismatch;
+ found   : true
+ required: false
+  lazy val y: Int @pure = { println(); 1 }
+                                   ^

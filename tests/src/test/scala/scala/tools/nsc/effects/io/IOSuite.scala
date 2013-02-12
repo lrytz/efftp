@@ -1,11 +1,14 @@
-package scala.tools.nsc.effects.io
+package scala.tools.nsc.effects
+package io
 
-import org.scalatest.FunSuite
 import scala.tools.nsc.effects.testing.TestMacros._
 
 import scala.annotation.effects._
 
-class IOSuite extends FunSuite {
+class IOSuite extends PosNegSuite {
+
+//  override val updateCheck: List[String] = List("ioSuiteNeg")
+
   def foo(): Unit @io = { println() }
 
   // need local values, see below
@@ -116,8 +119,6 @@ class IOSuite extends FunSuite {
     assert(isSubtype[Object](objLub2))
   }
 
-  // TODO: can only check that something DOES type check, but not that something doesn't, e.g. cannot check error message in
-  //   val ptOrLub2: { def f: Object @noIo } = if (cnd) new { def f: A @io = null } else new { def f: B @noIo = null }
   test("refinements are kept & checked if they are in the expected type") {
     class A; class B
 

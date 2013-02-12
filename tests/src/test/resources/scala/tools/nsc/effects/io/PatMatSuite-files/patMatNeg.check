@@ -1,0 +1,10 @@
+newSource:9: error: effect type mismatch;
+ found   : true
+ required: false
+    case One(x) if {println(); x == 10} => x
+                           ^
+newSource:14: error: effect type mismatch;
+ found   : true
+ required: false
+    case Even() => x / 2
+             ^
