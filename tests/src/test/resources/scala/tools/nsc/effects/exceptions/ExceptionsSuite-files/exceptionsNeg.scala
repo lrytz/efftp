@@ -40,6 +40,12 @@ class C {
   } catch {
     case e: E2 if (cnd) => 1
   }
+
+  def t8: Int @pure = try {
+    throw new E1
+  } catch {
+    case _: E1 | _: E2 if (cnd) => 1
+  }
 }
 
 class E1 extends Exception

@@ -51,36 +51,65 @@ abstract class ExceptionsDomain extends EffectDomain {
     List(AnnotationInfo(typeRef(throwsClass.tpe.prefix, throwsClass, List(toType(eff))), Nil, Nil))
   }
 
+  /**
+   * Returns
+   *   - the list of types caught by the pattern of `caseDef`
+   *   - a boolean indicating if the pattern has been analyzed precisely or not
+   */
+  def typesMatchingPattern(pattern: Tree): (List[Type], Boolean) = pattern match {
+    /*** catch one specific exception ***/
+
+    case Bind(_, Typed(Ident(nme.WILDCARD), tpt)) =>
+      (List(tpt.tpe), true)
+    case Typed(Ident(nme.WILDCARD), tpt) =>
+      (List(tpt.tpe), true)
+
+
+    /*** catch any exception (i.e. Throwable) ***/
+
+    case Ident(nme.WILDCARD) | Bind(_, Ident(nme.WILDCARD)) =>
+      (List(throwableType), true)
+
+
+    /*** alternatives ***/
+
+    case Alternative(trees) =>
+      ((List[Type](),true) /: trees)((res, tree) => {
+        val (mask, isPrecise) = res
+        val (treeMask, treeIsPrecise) = typesMatchingPattern(tree)
+        (mask u treeMask, isPrecise && treeIsPrecise)
+      })
+
+    case _ =>
+      (Nil, false)
+  }
+
+  /**
+   * Returns
+   *   - the list of types which we know are caugth by the case statements `cases`
+   *   - a boolean indicating wether the case analysis was precise
+   *   - the effect of the righthand-side statements of the cases
+   */
+  def typesMatchingCases(cases: List[CaseDef], ctx: EffectContext): (List[Type], Boolean, Effect) = {
+    ((bottom, true, bottom) /: cases)((res, cdef) => {
+      val (mask, isPrecise, catchEff) = res
+      val resCatchEff = catchEff u super.computeEffect(cdef.body, ctx)
+      if (cdef.guard.isEmpty) {
+        val (caseMask, caseIsPrecise) = typesMatchingPattern(cdef.pat)
+        (mask u caseMask, isPrecise && caseIsPrecise, resCatchEff)
+      } else {
+        (mask, false, resCatchEff)
+      }
+    })
+  }
+
   override def computeEffectImpl(tree: Tree, ctx: EffectContext): Effect = tree match {
     case Throw(expr) =>
       val exprEff = super.computeEffect(expr, ctx)
       exprEff u List(expr.tpe)
 
     case Try(body, catches, finalizer) =>
-      var mask: Effect = bottom
-      var maskIsPrecise = true
-      var catchEff: Effect = bottom
-      for (CaseDef(pat, guard, body) <- catches) {
-        pat match {
-          /*** catch one specific exception ***/
-
-          case Bind(_, Typed(Ident(nme.WILDCARD), tpt)) if guard.isEmpty =>
-            mask = mask u List(tpt.tpe)
-          case Typed(Ident(nme.WILDCARD), tpt) if guard.isEmpty =>
-            mask = mask u List(tpt.tpe)
-
-
-          /*** catch any exception (i.e. Throwable) ***/
-
-          case Ident(nme.WILDCARD) | Bind(_, Ident(nme.WILDCARD)) if guard.isEmpty =>
-            mask = mask u List(throwableType)
-
-          case _ =>
-            maskIsPrecise = false
-            ()
-        }
-        catchEff = catchEff u super.computeEffect(body, ctx)
-      }
+      val (mask, maskIsPrecise, catchEff) = typesMatchingCases(catches, ctx)
 
       // set the expected effect: allow masked effects inside the `try`
       val expectedMasked = {

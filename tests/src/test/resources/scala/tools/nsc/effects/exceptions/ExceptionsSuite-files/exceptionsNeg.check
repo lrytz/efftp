@@ -31,3 +31,8 @@ newSource:38: error: effect type mismatch;
  required: List(Nothing)
   def t7: Int @pure = try {
                       ^
+newSource:44: error: effect type mismatch;
+ found   : List(E1)
+ required: List(Nothing)
+  def t8: Int @pure = try {
+                      ^
