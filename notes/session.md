@@ -1,9 +1,8 @@
 # next up
 
-- exceptions
-
 - state effects
 
+- collections example
 
 - allow user to specify default effects
   - a compiler plugin written by users?
@@ -79,6 +78,7 @@
 
 - testing framework for effect domain authors. we should also use that for testing the core plugin
 
+- run effects plugin selectively? e.g. on some packages only. is that useful, practical
 
 ## pushing argument types into @rel annotations of result types
 

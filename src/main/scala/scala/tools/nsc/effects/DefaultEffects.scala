@@ -19,6 +19,9 @@ trait DefaultEffects { self: EffectDomain =>
     d.TupleClass.toList
 
   lazy val classesWithPureConstructors: List[Symbol] = List(
+    d.ThrowableClass,
+    m.requiredClass[Exception],
+    m.requiredClass[RuntimeException]
   ) ++
     d.AbstractFunctionClass.toList ++
     d.FunctionClass.toList

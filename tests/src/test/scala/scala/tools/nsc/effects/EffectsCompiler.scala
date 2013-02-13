@@ -6,9 +6,7 @@ import tools.nsc.{Global, Settings}
 import tools.nsc.reporters.{ConsoleReporter, Reporter}
 import reflect.internal.util.BatchSourceFile
 
-class EffectsCompiler {
-
-  def domains: List[String] = List("io")
+class EffectsCompiler(domains: List[String]) {
 
   def extraSettings: String = ""
 

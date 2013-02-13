@@ -31,6 +31,11 @@ class EffectsPlugin(val global: Global) extends Plugin {
           val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
         }
 
+      case List("exceptions") =>
+        new exceptions.ExceptionsDomain {
+          val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
+        }
+
       case ds =>
         global.abort(s"Unknown domains: $ds")
     }

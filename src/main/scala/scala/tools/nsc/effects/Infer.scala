@@ -71,6 +71,7 @@ trait Infer { self: EffectDomain =>
 
       case Apply(TypeTree(), args) =>
         // case class constructor patterns
+        // TODO: probably the assertion can fail for `catch` blocks
         assert(ctx.patternMode, s"Apply outside patterns with fun being a TypeTree: $tree")
         computeChildEffects(tree, ctx)
 

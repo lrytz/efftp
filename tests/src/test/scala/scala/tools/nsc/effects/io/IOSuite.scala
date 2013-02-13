@@ -5,7 +5,7 @@ import scala.tools.nsc.effects.testing.TestMacros._
 
 import scala.annotation.effects._
 
-class IOSuite extends PosNegSuite {
+class IOSuite extends PosNegSuite("io") {
 
 //  override val updateCheck: List[String] = List("ioSuiteNeg")
 
