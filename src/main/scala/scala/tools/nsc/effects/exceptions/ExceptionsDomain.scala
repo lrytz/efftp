@@ -1,7 +1,7 @@
 package scala.tools.nsc.effects
 package exceptions
 
-import tools.nsc.Global
+import scala.tools.nsc.Global
 
 abstract class ExceptionsDomain extends EffectDomain {
   import global._
@@ -140,8 +140,8 @@ abstract class ExceptionsLattice extends EffectLattice {
   type Effect = List[Type]
 
 
-  def top: Effect    = List(throwableType)
-  def bottom: Effect = List(nothingType)
+  lazy val top: Effect    = List(throwableType)
+  lazy val bottom: Effect = List(nothingType)
 
   def lte(a: Effect, b: Effect): Boolean =
     a.forall(lteOne(_, b))

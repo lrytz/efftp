@@ -93,7 +93,7 @@ abstract class PosNegSuite(domains: List[String]) extends FunSuite {
         val (scala, others) = xs.partition(isScalaFor(name, _))
         val test = scala match {
           case s :: _ => NegTest(name, s, x)
-          case _      => error("no scala file found for check file "+ x)
+          case _      => sys.error("no scala file found for check file "+ x)
         }
         test :: testsFromURIs(others)
 
@@ -121,7 +121,7 @@ abstract class PosNegSuite(domains: List[String]) extends FunSuite {
         w.write(content)
         w.close()
       } else {
-        error(s"Cannot write .check file, source is not a plain file: $srcStr")
+        sys.error(s"Cannot write .check file, source is not a plain file: $srcStr")
       }
     }
   }

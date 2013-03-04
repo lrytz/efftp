@@ -42,7 +42,7 @@ abstract class IODomain extends EffectDomain {
 class IOLattice extends EffectLattice {
   type Effect = Boolean
 
-  def top: Effect = true
+  def top: Effect    = true
   def bottom: Effect = false
 
   def join(a: Effect, b: Effect): Effect = a || b

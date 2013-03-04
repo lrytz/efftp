@@ -1,8 +1,8 @@
 package scala.tools.nsc.effects
 
-import tools.nsc.Global
-import tools.nsc.plugins.PluginComponent
-import tools.nsc.transform.{TypingTransformers, Transform}
+import scala.tools.nsc.Global
+import scala.tools.nsc.plugins.PluginComponent
+import scala.tools.nsc.transform.{TypingTransformers, Transform}
 
 abstract class EffectChecker extends PluginComponent with Transform with TypeCheckerPlugin with TypeUtils {
 

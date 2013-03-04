@@ -241,9 +241,9 @@
   <component name="libraryTable">
     <library name="scala-effects">
       <CLASSES>
-        <root url="jar://$PROJECT_DIR$/../lib/scala/lib/scala-library.jar!/" />
-        <root url="jar://$PROJECT_DIR$/../lib/scala/lib/scala-reflect.jar!/" />
-        <root url="jar://$PROJECT_DIR$/../lib/scala/lib/scala-compiler.jar!/" />
+        <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-lang/scala-compiler/jars/scala-compiler-2.10.1-RC2.jar!/" />
+        <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-lang/scala-library/jars/scala-library-2.10.1-RC2.jar!/" />
+        <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-lang/scala-reflect/jars/scala-reflect-2.10.1-RC2.jar!/" />
       </CLASSES>
       <JAVADOC />
       <SOURCES>
@@ -254,7 +254,7 @@
     </library>
     <library name="scalatest">
       <CLASSES>
-        <root url="jar://$PROJECT_DIR$/../lib/scalatest_scala-effects-1.9-2.10.0-M6-B2.jar!/" />
+        <root url="jar://$USER_HOME$/.ivy2/cache/org.scalatest/scalatest_2.10/jars/scalatest_2.10-1.9.1.jar!/" />
       </CLASSES>
       <JAVADOC />
       <SOURCES />

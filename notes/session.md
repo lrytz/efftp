@@ -1,5 +1,7 @@
 # next up
 
+- @pure could mean @throws[RuntimeException]
+
 - state effects
 
 - collections example

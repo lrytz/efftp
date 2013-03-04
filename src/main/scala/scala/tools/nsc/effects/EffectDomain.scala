@@ -50,7 +50,7 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects {
       val sym = ann.atp.typeSymbol
       sym == pureClass || sym == relClass
     })
-    val default = if (hasPureOrRel) bottom else top
+    val default = if (hasPureOrRel) effectForPureAnnotated else top
     parseAnnotationInfos(annots, default)
   }
 
@@ -65,6 +65,10 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects {
 
   lazy val allEffectAnnots = pureClass :: relClass :: annotationClasses
 
+  /**
+   * The effect that is assigned to getters and setters. This method can be overridden
+   * by effect domains to assign a different effect to accessors.
+   */
   def accessorEffect(sym: Symbol): Effect = bottom
 }
 
@@ -73,6 +77,13 @@ trait EffectLattice {
 
   def top: Effect
   def bottom: Effect
+
+  /**
+   * This effect is used by the framework for methods that have a `@pure` annotation.
+   * By default, pure methods have the `bottom` effect. Effect domains can override
+   * this method to assign a different default effect to `@pure` methods.
+   */
+  def effectForPureAnnotated: Effect = bottom
 
   def join(a: Effect, b: Effect): Effect
   def meet(a: Effect, b: Effect): Effect

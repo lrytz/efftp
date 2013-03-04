@@ -137,7 +137,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
      */
     override def isActive(): Boolean = pluginIsActive()
 
-    // todo: weak map, or clear it
+    // todo: weak map, or clear it. OR: use tree attachments, attach (Template, Typer) to the primary constructor DefDef
     val templates: mutable.Map[Symbol, (Template, Typer)] = mutable.Map()
 
     lazy val ConstrEffTypeDefName = newTypeName("constructorEffect")

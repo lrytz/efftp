@@ -1,9 +1,9 @@
 package scala.tools.nsc.effects
 
 import java.io.{PrintWriter, StringWriter}
-import tools.nsc.util.CommandLineParser
-import tools.nsc.{Global, Settings}
-import tools.nsc.reporters.{ConsoleReporter, Reporter}
+import scala.tools.nsc.util.CommandLineParser
+import scala.tools.nsc.{Global, Settings}
+import scala.tools.nsc.reporters.{ConsoleReporter, Reporter}
 import reflect.internal.util.BatchSourceFile
 
 class EffectsCompiler(domains: List[String]) {
