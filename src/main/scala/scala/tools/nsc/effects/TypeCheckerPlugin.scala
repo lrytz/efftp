@@ -148,7 +148,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
      *
      * @TODO: doc why, see session.md
      */
-    override def pluginsPt(pt: Type, typer: Typer, tree: Tree, mode: Int): Type = {
+    override def pluginsPt(pt: Type, typer: Typer, tree: Tree, mode: scala.reflect.internal.Mode): Type = {
       removeAllEffectAnnotations(pt)
     }
 
@@ -426,10 +426,10 @@ trait TypeCheckerPlugin { self: EffectChecker =>
         }
         enterTplSyms()
 
-        val typedParents = analyzer.newTyper(templateTyper.context.outer).parentTypes(templ)
+        val typedParents = analyzer.newTyper(templateTyper.context.outer).typedParentTypes(templ)
 
-        val constrBody = ddef.rhs
-        /* FOR 2.11, NEED THE FOLLOWING
+        // val constrBody = ddef.rhs
+
         val constrBody = ddef.rhs match {
           case Block(earlyVals :+ global.pendingSuperCall, unit) =>
             val argss = analyzer.superArgs(typedParents.head) getOrElse Nil
@@ -439,7 +439,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             Block(earlyVals :+ superCall, unit)
           case rhs => rhs
         }
-        */
+
         inferPrimaryConstrEff(constrSym, constrBody, defTyper, templ, templateTyper,
                               typedParents, alreadyTyped = false, expected = None)
       }
@@ -605,7 +605,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
      * we verify that the effect of the body conforms to the annotated effect. In order to do the same for
      * the primary constructor, we have to compute the effect of multiple parts of the class template.
      */
-    override def pluginsTyped(tpe: Type, typer: Typer, tree: Tree, mode: Int, pt: Type): Type =
+    override def pluginsTyped(tpe: Type, typer: Typer, tree: Tree, mode: scala.reflect.internal.Mode, pt: Type): Type =
       if (tree.isTerm) tree match {
         case Function(params, body) =>
           val funSym = tree.symbol
