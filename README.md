@@ -3,7 +3,8 @@
 ## Building
 
 The plugin builds with `sbt`. The `master` branch of the effects plugin builds against
-Scala 2.10.1-RC2.
+Scala 2.10.1-RC2. I fyou want to have a plugin for Scala 2.11.0-SNAPSHOT, you can check
+out the `scala-2.11` branch of this repository.
 
 
 ## Running the Tests
