@@ -2,7 +2,7 @@ package scala.tools.nsc.effects
 
 import scala.tools.nsc._
 
-abstract class EffectDomain extends Infer with RelEffects with DefaultEffects {
+abstract class EffectDomain extends Infer with RelEffects with DefaultEffects with AnfTransform {
   // `global` should not be a class parameter. Having it a field allows to refine
   // its type, e.g. `EffectDomain { val global: some.global.type }`, which is not
   // possible for parameters.
@@ -12,6 +12,15 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects {
   import lattice._
 
   import global._
+
+  /**
+   * A flag indicating if trees should be translated to ANF [*] before invoking
+   * `computeEffect`. This flag can be overridden by concrete effect domains which
+   * require trees to be in ANF, such as the purity checker.
+   *
+   * [*] Administrative Normal Form, see "The Essence of Compiling with Continuations"
+   */
+  val requireANF: Boolean = false
 
   /**
    * The annotation classes which are used by this effect domain to annotate effects.

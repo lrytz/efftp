@@ -13,6 +13,8 @@ abstract class BiEffectDomain extends EffectDomain {
   }
   val d2: D2
 
+  override val requireANF: Boolean = d1.requireANF || d2.requireANF
+
   val lattice = new BiLattice {
     val l1: d1.lattice.type = d1.lattice
     val l2: d2.lattice.type = d2.lattice

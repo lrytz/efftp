@@ -12,7 +12,7 @@ object ProjectBuild extends Build {
 
   // settings valid for both projects (the plugin and the tests)
   val sharedSettings = Seq (
-    scalaVersion := "2.10.1-RC2",
+    scalaVersion := "2.10.1",
     libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ ),
 
     // #customScalaVersion

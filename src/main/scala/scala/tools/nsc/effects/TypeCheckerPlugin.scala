@@ -264,6 +264,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
 
       val relEnv = relEffects(constrSym)
 
+      // @ANF
       val rhsE = domain.computeEffect(typedConstrBody, effectContext(expected, relEnv, defTyper, superContextMsg))
 
       val fields = templ.body collect {
@@ -277,6 +278,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             val fieldTyper = analyzer.newTyper(templTyper.context.makeNewScope(vd, vd.symbol))
             typeCheckRhs(vd.rhs, fieldTyper, vd.symbol.tpe)
           }
+        // @ANF
         val fieldEff = domain.computeEffect(typedFieldRhs, effectContext(expected, relEnv, templTyper, fieldContextMsg))
         e u fieldEff
       })
@@ -294,6 +296,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
         }
 
       val includeStatsEff = (includeFieldsEff /: typedStats)((e, stat) =>
+        // @ANF (in fact, need to transform to anf before typing, see `typedStats`)
         e u domain.computeEffect(stat, effectContext(expected, relEnv, templTyper, statementContextMsg))
       )
 
@@ -453,8 +456,8 @@ trait TypeCheckerPlugin { self: EffectChecker =>
     /**
      * Return the typed `rhs` of a DefDef or ValDef.
      *
-     * `pt` needs to be a by-name parameter so that its computation is executed within the `silent` context.
-     * Example:
+     * `pt` needs to be a by-name parameter so that its computation (which might trigger
+     * completion of a symol) is executed within the `silent` context. Example:
      *   class C { val x = new C }
      *
      * Here, computing the type of x will
@@ -504,7 +507,13 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             // see comment on `def relEffects`
             val relEnv = relEffects(sym.owner.enclMethod)
             val typedRhs = typeCheckRhs(rhs, typer, pt)
-            (domain.computeEffect(typedRhs, effectContext(None, relEnv, typer)), relEnv)
+
+            val maybeAnf =
+              if (requireANF) domain.AnfTransformer.transformToAnf(typedRhs, typer, pt)
+              else typedRhs
+
+            // @ANF
+            (domain.computeEffect(maybeAnf, effectContext(None, relEnv, typer)), relEnv)
           }
 
           def isCaseApply          = sym.isSynthetic && sym.isCase && sym.name == nme.apply
@@ -560,6 +569,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
           // but really the one of the enclosing method. this is correct: the lazy val is not evaluated during
           // the constructor, but whenever the field is accessed.
           val relEnv = relEffects(vdef.symbol.enclMethod)
+          // @ANF
           val e = domain.computeEffect(typedRhs, effectContext(None, relEnv, typer))
           setEffect(tpe, e, relEnv)
 
@@ -611,6 +621,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
           val funSym = tree.symbol
           val enclMeth = funSym.enclMethod
           val enclRel = domain.relEffects(enclMeth)
+          // @ANF
           val e = domain.computeEffect(body, effectContext(None, enclRel, typer))
 
           // we also compute the effect of the function body assuming there are no relative effects.
@@ -623,6 +634,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
           val effectiveRel =
             if (enclRel.isEmpty) Nil
             else {
+              // @ANF
               val eNoRel = domain.computeEffect(body, effectContext(None, Nil, typer))
               if (eNoRel <= e) Nil else enclRel
             }
@@ -654,6 +666,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             }
 
             expectedEffect foreach (annotEff => {
+              // @ANF
               domain.computeEffect(rhs, effectContext(Some(annotEff), relEffects(meth), typer))
             })
 
