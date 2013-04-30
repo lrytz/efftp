@@ -496,91 +496,88 @@ trait TypeCheckerPlugin { self: EffectChecker =>
      * This method allows modifying the type which is assigned to a definition's symbol during Namer.
      * The effect of a method is inferred if also its type is inferred.
      */
-    override def pluginsTypeSig(tpe: Type, typer: Typer, defTree: Tree, pt: Type): Type = {
+    override def pluginsTypeSig(tpe: Type, typer: Typer, defTree: Tree, pt: Type): Type = defTree match {
+      case ddef @ DefDef(_, _, _, _, tpt, rhs) =>
+        val sym = defTree.symbol
 
-      defTree match {
-        case ddef @ DefDef(_, _, _, _, tpt, rhs) =>
-          val sym = defTree.symbol
-
-          def inferMethodEff(pt: Type = pt): (Effect, List[RelEffect]) = {
-            // since the effect of the mehtod is inferred, the relative effect is inherited from the enclosing method.
-            // see comment on `def relEffects`
-            val relEnv = relEffects(sym.owner.enclMethod)
-            val typedRhs = typeCheckRhs(rhs, typer, pt)
-
-            val maybeAnf =
-              if (requireANF) domain.AnfTransformer.transformToAnf(typedRhs, typer, pt)
-              else typedRhs
-
-            // @ANF
-            (domain.computeEffect(maybeAnf, effectContext(None, relEnv, typer)), relEnv)
-          }
-
-          def isCaseApply          = sym.isSynthetic && sym.isCase && sym.name == nme.apply
-          def isCopy               = sym.isSynthetic && sym.name == nme.copy
-          def isCopyDefault        = sym.isSynthetic &&
-                                     sym.name.toString.startsWith(nme.copy.toString + nme.DEFAULT_GETTER_STRING)
-          def isCaseModuleToString = sym.isSynthetic && sym.name == nme.toString_ &&
-                                     sym.owner.isModuleClass && sym.owner.companionClass.isCaseClass
-
-          if (sym.isPrimaryConstructor) {
-            val (e, rel) = primaryConstrEff(ddef, typer)
-            setEffect(tpe, e, rel)
-
-          } else if (sym.isConstructor) {
-            /* Auxiliary constructors effects are inferred just like ordinary methods. Just need to use WildcardType
-             * to type check the body, not pt (which is the class type).
-             */
-            val typeDefAnnots = constrEffTypeDefAnnots(ddef, None, typer, alreadyTyped = false)
-            val (rhsE, relEffs) = annotatedConstrEffect(sym, typeDefAnnots).getOrElse {
-              // Hack, but YEAH. This allows effect inference for auxiliary constructors. `tpt.tpe` is the correct
-              // return type for the constructor (without effect annotations). Having a non-lazy type prevents a cyclic
-              // reference when resolving the correct overload of the self-constructor-invocation. Since auxiliary
-              // constructors can only call earlier ones, this is safe. Nobody will observe the temporary type.
-              sym.setInfo(tpt.tpe)
-              inferMethodEff(pt = WildcardType)
-            }
-            setEffect(tpe, rhsE, relEffs)
-
-          } else if (isCaseApply || isCopy) {
-            // synthetic methods: apply and copy of case class
-            val (e, rel) = inferMethodEff()
-            setEffect(tpe, e, rel) // TODO: correct relative effects?
-
-          } else if (isCopyDefault || isCaseModuleToString) {
-            // default getters of copy method, toString of companion object
-            setEffect(tpe, bottom, Nil)
-
-          } else if (tptWasInferred(tpt)) {
-            // if the return type was inferred, also infer the effect
-            val (e, rel) = inferMethodEff()
-            setEffect(tpe, e, rel)
-
-          } else {
-            // for methods with annotated return types, don't change anything
-            // @TODO: in case there is no effect annotation on tpe, should we add the default effect (top)?
-            // things work either way, but it would be better for documentation.
-            tpe
-          }
-
-        case vdef @ ValDef(_, _, tpt, rhs) if vdef.symbol.isLazy && tptWasInferred(tpt) =>
+        def inferMethodEff(pt: Type = pt): (Effect, List[RelEffect]) = {
+          // since the effect of the mehtod is inferred, the relative effect is inherited from the enclosing method.
+          // see comment on `def relEffects`
+          val relEnv = relEffects(sym.owner.enclMethod)
           val typedRhs = typeCheckRhs(rhs, typer, pt)
-          // NOTE: if this lazy val is a field the relative environment is NOT the one of the class constructor,
-          // but really the one of the enclosing method. this is correct: the lazy val is not evaluated during
-          // the constructor, but whenever the field is accessed.
-          val relEnv = relEffects(vdef.symbol.enclMethod)
+
+          val maybeAnf =
+            if (requireANF) domain.AnfTransformer.transformToAnf(typedRhs, typer, pt)
+            else typedRhs
+
           // @ANF
-          val e = domain.computeEffect(typedRhs, effectContext(None, relEnv, typer))
-          setEffect(tpe, e, relEnv)
+          (domain.computeEffect(maybeAnf, effectContext(None, relEnv, typer)), relEnv)
+        }
 
-        case impl: Template =>
-          // typer.context.owner is the class symbol for ClassDefs, the moduleClassSymbol for ModuleDefs
-          templates += typer.context.owner -> (impl, typer)
-          tpe
+        def isCaseApply          = sym.isSynthetic && sym.isCase && sym.name == nme.apply
+        def isCopy               = sym.isSynthetic && sym.name == nme.copy
+        def isCopyDefault        = sym.isSynthetic &&
+          sym.name.toString.startsWith(nme.copy.toString + nme.DEFAULT_GETTER_STRING)
+        def isCaseModuleToString = sym.isSynthetic && sym.name == nme.toString_ &&
+          sym.owner.isModuleClass && sym.owner.companionClass.isCaseClass
 
-        case _ =>
+        if (sym.isPrimaryConstructor) {
+          val (e, rel) = primaryConstrEff(ddef, typer)
+          setEffect(tpe, e, rel)
+
+        } else if (sym.isConstructor) {
+          /* Auxiliary constructors effects are inferred just like ordinary methods. Just need to use WildcardType
+           * to type check the body, not pt (which is the class type).
+           */
+          val typeDefAnnots = constrEffTypeDefAnnots(ddef, None, typer, alreadyTyped = false)
+          val (rhsE, relEffs) = annotatedConstrEffect(sym, typeDefAnnots).getOrElse {
+            // Hack, but YEAH. This allows effect inference for auxiliary constructors. `tpt.tpe` is the correct
+            // return type for the constructor (without effect annotations). Having a non-lazy type prevents a cyclic
+            // reference when resolving the correct overload of the self-constructor-invocation. Since auxiliary
+            // constructors can only call earlier ones, this is safe. Nobody will observe the temporary type.
+            sym.setInfo(tpt.tpe)
+            inferMethodEff(pt = WildcardType)
+          }
+          setEffect(tpe, rhsE, relEffs)
+
+        } else if (isCaseApply || isCopy) {
+          // synthetic methods: apply and copy of case class
+          val (e, rel) = inferMethodEff()
+          setEffect(tpe, e, rel) // TODO: correct relative effects?
+
+        } else if (isCopyDefault || isCaseModuleToString) {
+          // default getters of copy method, toString of companion object
+          setEffect(tpe, bottom, Nil)
+
+        } else if (tptWasInferred(tpt)) {
+          // if the return type was inferred, also infer the effect
+          val (e, rel) = inferMethodEff()
+          setEffect(tpe, e, rel)
+
+        } else {
+          // for methods with annotated return types, don't change anything
+          // @TODO: in case there is no effect annotation on tpe, should we add the default effect (top)?
+          // things work either way, but it would be better for documentation.
           tpe
-      }
+        }
+
+      case vdef @ ValDef(_, _, tpt, rhs) if vdef.symbol.isLazy && tptWasInferred(tpt) =>
+        val typedRhs = typeCheckRhs(rhs, typer, pt)
+        // NOTE: if this lazy val is a field the relative environment is NOT the one of the class constructor,
+        // but really the one of the enclosing method. this is correct: the lazy val is not evaluated during
+        // the constructor, but whenever the field is accessed.
+        val relEnv = relEffects(vdef.symbol.enclMethod)
+        // @ANF
+        val e = domain.computeEffect(typedRhs, effectContext(None, relEnv, typer))
+        setEffect(tpe, e, relEnv)
+
+      case impl: Template =>
+        // typer.context.owner is the class symbol for ClassDefs, the moduleClassSymbol for ModuleDefs
+        templates += typer.context.owner -> (impl, typer)
+        tpe
+
+      case _ =>
+        tpe
     }
 
     /**
