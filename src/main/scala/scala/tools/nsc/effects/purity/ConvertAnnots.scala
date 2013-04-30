@@ -5,8 +5,9 @@ trait ConvertAnnots { this: PurityDomain =>
   import global._
   import lattice._
 
-  lazy val modClass = rootMirror.getClassByName(newTypeName("scala.annotation.effects.mod"))
-  lazy val locClass = rootMirror.getClassByName(newTypeName("scala.annotation.effects.loc"))
+  lazy val modClass    = rootMirror.getClassByName(newTypeName("scala.annotation.effects.mod"))
+  lazy val assignClass = rootMirror.getClassByName(newTypeName("scala.annotation.effects.assign"))
+  lazy val locClass    = rootMirror.getClassByName(newTypeName("scala.annotation.effects.loc"))
 
   lazy val annotationClasses = List(modClass, locClass)
 
@@ -22,47 +23,53 @@ trait ConvertAnnots { this: PurityDomain =>
 
 
   def parseAnnotationInfos(annots: List[AnnotationInfo], default: => Effect): Effect = {
-    val (modAnns, locAnns) = purityAnnotations(annots)
+    val (modAnns, assignAnn, locAnns) = purityAnnotations(annots)
     val modEff = localityFromAnnotations(modAnns)
+    val assignEff = assingEffFromAnnotations(assignAnn)
     val resLoc = localityFromAnnotations(locAnns)
 
     /* When there is no store or no locality annotation, we use these defaults:
      *  - "@mod()" (no modifications), if there's no annotation in the "store" domain
      *  - "@loc(any)" if there's no locality annotation */
     if (modEff.isEmpty && resLoc.isEmpty) default
-    else (modEff.getOrElse(RefSet()), resLoc.getOrElse(AnyLoc))
+    else (
+      modEff.getOrElse(RefSet()),
+      assignEff.getOrElse(Assigns()),
+      resLoc.getOrElse(AnyLoc))
   }
 
   private def purityAnnotations(annots: List[AnnotationInfo]) = {
     val nil: List[AnnotationInfo] = Nil
-    ((nil, nil) /: annots) {
-      case ((modAnn, locAnn), annot) =>
+    ((nil, nil, nil) /: annots) {
+      case ((modAnn, assignAnn, locAnn), annot) =>
         annot.atp.typeSymbol match {
-          case `modClass` => (annot :: modAnn, locAnn)
-          case `locClass` => (modAnn, annot :: locAnn)
-          case _          => (modAnn, locAnn)
+          case `modClass`    => (annot :: modAnn, assignAnn, locAnn)
+          case `assignClass` => (modAnn, annot :: assignAnn, locAnn)
+          case `locClass`    => (modAnn, assignAnn, annot :: locAnn)
+          case _             => (modAnn, assignAnn, locAnn)
         }
     }
   }
 
 
   private def localityFromAnnotations(annots: List[AnnotationInfo]): Option[Locality] = {
-    val fresh: Locality = RefSet()
-    val res = (fresh /: annots) {
-      case (loc, ann) =>
-        // the localities in the arguments of this locality
-        val annArgLocalities = ann.args.map(localityOf)
-        unionLocalities(loc, annArgLocalities)
-    }
-
     if (annots.isEmpty) None
-    else Some(res)
+    else {
+      val fresh: Locality = RefSet()
+      val res = (fresh /: annots) {
+        case (loc, ann) =>
+          // the localities in the arguments of this locality
+          val annArgLocalities = ann.args.map(localityOf)
+          joinLocalities(annArgLocalities, init = loc)
+      }
+      Some(res)
+    }
   }
 
 
-  private def unionLocalities(init: Locality, locs: List[Locality]): Locality =
+  private def joinLocalities(locs: List[Locality], init: Locality = RefSet()): Locality =
     (init /: locs) {
-      case (locA, locB) => locA union locB
+      case (locA, locB) => locA join locB
     }
 
 
@@ -92,13 +99,50 @@ trait ConvertAnnots { this: PurityDomain =>
 
 
 
+  private def assingEffFromAnnotations(annots: List[AnnotationInfo]): Option[AssignEff] = {
+    if (annots.isEmpty) None
+    else {
+      val eff = ((Assigns(): AssignEff) /: annots)({
+        case (assignEff, annot) =>
+          assignEff.join(assignEffFromAnnot(annot))
+      })
+      Some(eff)
+    }
+  }
+
+  private def assignEffFromAnnot(annot: AnnotationInfo): AssignEff = {
+    lazy val msg = s"Invalid assign annotation: $annot. First argument needs to be  a lcoal variable."
+    annot.args.map(localityOf) match {
+      case Nil =>
+        Assigns()
+
+      case AnyLoc :: _ =>
+        AssignAny
+
+      case RefSet(refs) :: locs =>
+        refs.toList match {
+          case List(SymRef(sym)) => Assigns((sym, joinLocalities(locs)))
+          case _ =>
+            abort(msg)
+        }
+
+      case _ =>
+        abort(msg)
+    }
+
+  }
+
+
   /* ************************* *
    * CONVERTING TO ANNOTATIONS *
    * ************************* */
 
 
+  /*
+   * TODO: should avoid unnecessary annotations, eg @assign() when there's something else
+   */
   def toAnnotation(eff: Effect): List[AnnotationInfo] = {
-    val res = modAnnotations(eff._1) :: locAnnnotations(eff._2)
+    val res = modAnnotation(eff._1) :: assignAnnotations(eff._2) ::: locAnnnotations(eff._3)
     if (res.isEmpty)
       List(AnnotationInfo(modClass.tpe, Nil, Nil))
     else
@@ -112,14 +156,15 @@ trait ConvertAnnots { this: PurityDomain =>
     case ThisRef(sym) => gen.mkAttributedThis(sym)
   }
 
-  private def modAnnotations(modEff: Mod): AnnotationInfo = modEff match {
+  /* @TODO: seems incorrect, it yields a tree which pretty-prints as
+   *   effects.this.any
+   *   Select(This(effects), "any")
+   * where `effects` is symbol of package `effects`.
+   */
+  private def anyLocArg = gen.mkAttributedRef(anyLocObject)
+
+  private def modAnnotation(modEff: Mod): AnnotationInfo = modEff match {
     case AnyLoc =>
-      /* @TODO: seems incorrect, it yields a tree which pretty-prints as
-       *   effects.this.any
-       *   Select(This(effects), "any")
-       * where `effects` is symbol of package `effects`.
-       */
-      val anyLocArg = gen.mkAttributedRef(anyLocObject)
       AnnotationInfo(modClass.tpe, List(anyLocArg), Nil)
 
     case RefSet(refs) =>
@@ -132,6 +177,22 @@ trait ConvertAnnots { this: PurityDomain =>
 
     case RefSet(s) =>
       List(AnnotationInfo(locClass.tpe, s.toList.map(ref2Arg), Nil))
+  }
+
+
+  private def assignAnnotations(assignEff: AssignEff): List[AnnotationInfo] = assignEff match {
+    case AssignAny =>
+      List(AnnotationInfo(assignClass.tpe, List(anyLocArg), Nil))
+
+    case Assigns(as) =>
+      as.toList map { case (sym, loc) =>
+        val locArgs = loc match {
+          case AnyLoc => List(anyLocArg)
+          case RefSet(s) => s.toList.map(ref2Arg)
+        }
+        val args = gen.mkAttributedIdent(sym) :: locArgs
+        AnnotationInfo(assignClass.tpe, args, Nil)
+      }
   }
 
 }
