@@ -9,10 +9,12 @@ trait PurityInfer { this: PurityDomain =>
     tree match {
 
       // @TODO: no more needed?
-      case ValDef(_, _, _, rhs) if sym.isVariable =>
-        val (rhsMod, rhsAssigns, rhsLoc) = computeEffect(rhs, ctx)
-        sym.updateAttachment(LocalVarInitialLocality(rhsLoc))
-        (rhsMod, rhsAssigns, rhsLoc)
+      case ValDef(_, _, _, rhs) /*if sym.isVariable*/ =>
+        val (rhsMod, rhsAssign, rhsLoc) = computeEffect(rhs, ctx)
+        // use an @assing effect for the initial assignment, also for non-variables. when
+        // the variable gets out of scope the assign effect will be taken into account.
+        val assignEff = Assigns((sym, rhsLoc))
+        (rhsMod, rhsAssign join assignEff, AnyLoc)
 
       case Ident(_) =>
         if (sym.isValueParameter || sym.isLocal)
@@ -37,14 +39,9 @@ trait PurityInfer { this: PurityDomain =>
 
       case Assign(Ident(name), rhs) =>
         assert(sym.isVariable && sym.isLocal, s"expected local variable, found $sym")
-        val initLoc = initialLocality(sym)
         val (rhsEff, rhsAssign, rhsLoc) = computeEffect(rhs, ctx)
-        // @TODO: for now we just use the top effect when the assigned locality is larger than the initial one.
-        // probably sound - future statements that effect on the variable are not typed as pure, they are typed
-        // as modifying that variable. the entire block where the variable is defined will not type as pure.
-        if (rhsLoc lte initLoc) lattice.noModAnyResLoc
-        else lattice.top
-
+        val assignEff = Assigns((sym, rhsLoc))
+        (rhsEff, rhsAssign join assignEff, AnyLoc)
 
 
       // direct field access - note that most field accesses go through getters
@@ -53,33 +50,14 @@ trait PurityInfer { this: PurityDomain =>
         val resloc = if (isLocalField(sym)) qualLoc else AnyLoc
         (qualMod, qualAssign, resloc)
 
+
+//      case Block
+
       case _ =>
         lattice.noModAnyResLoc
-
     }
   }
 
-  private case class LocalVarInitialLocality(loc: Locality)
-
   def isLocalField(sym: Symbol) =
     sym.hasAnnotation(localClass)
-
-  /**
-   * TODO: problem if the variable is defined in an outer method whose effect has not been computed yet.
-   * then the attachment is missing:
-   *
-   *   def f() {
-   *     var a = new A
-   *     def bar() { a = someGlobalA }
-   *   }
-   *
-   * if the effect of bar() is computed before the effect of f() then the symbol for a will not have an
-   * attachment.
-   *
-   *   ==> need @assign effect for nested methods
-   */
-  def initialLocality(localVar: Symbol): Locality = {
-    val att = localVar.attachments.get[LocalVarInitialLocality]
-    att.map(_.loc).getOrElse(RefSet())
-  }
 }

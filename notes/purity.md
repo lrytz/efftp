@@ -3,9 +3,9 @@
 OK
 - selection has locality of the parameter (Ident; also Select? probably not)
 - locality of a selection is the owner locality for local fields (Select)
+- assigning has an effect (@mod for fields, @assign for local variables)
 
 ToDo
-- assigning has an effect (todo for local vars)
 - substitute variables that get out of scope in type, effect and locality (Block)
 - substitute argument localities in effect, locality and result type when invoking a method
 
