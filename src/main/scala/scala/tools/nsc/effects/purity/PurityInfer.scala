@@ -89,13 +89,42 @@ trait PurityInfer extends Infer { this: PurityDomain =>
             substitute(substMap, (allMod, Assigns(otherAssigns), exprLoc))
         }
 
-
       case New(tpt) =>
         bottom // pure and fresh
 
-
       case Literal(c) =>
         effectForPureAnnotated // pure but not fresh
+
+
+      /* For method calls, set the expected locality to `Any`. The reason is that the effects for the function
+       * tree and for the arguments are computed using the expected locality that we use here. However the
+       * current expected locality only applies for the resulting value, and it is checked once we return from
+       * here.
+       *
+       * Note that at this point, Ident and Select trees can only be (parameterless) method calls, the other
+       * case is treated in cases above
+       */
+      case _: Apply | _: TypeApply | _: Ident | _: Select =>
+        val exp = ctx.expected map {
+          case (exMod, exAssign, _) => (exMod, exAssign, AnyLoc)
+        }
+        super.computeEffectImpl(tree, ctx.copy(expected = exp))
+
+
+      case If(cond, thenp, elsep) =>
+        val anyLocExp = ctx.expected map {
+          case (exMod, exAssign, _) => (exMod, exAssign, AnyLoc)
+        }
+        val (condMod, condAssign, _) = computeEffect(cond, ctx.copy(expected = anyLocExp))
+        val (thenMod, thenAssign, thenLoc) = computeEffect(thenp, ctx)
+        val (elseMod, elseAssign, elseLoc) = computeEffect(elsep, ctx)
+        (
+          condMod join thenMod join elseMod,
+          condAssign join thenAssign join elseAssign,
+          thenLoc join elseLoc)
+
+      case Match(sel, cases) =>
+        ??? // @todo
 
       case _ =>
         super.computeEffectImpl(tree, ctx)

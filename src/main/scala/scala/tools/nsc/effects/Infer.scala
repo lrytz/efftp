@@ -90,8 +90,7 @@ trait Infer { self: EffectDomain =>
         computeApplyEffect(tree, ctx)
 
       case (_: Ident | _: Select) if sym.isMethod =>
-        // parameterless local methods are applied using an `Ident` tree
-        // @TODO: why do we have Select? Probably for other param-less methods.
+        // parameterless methods are applied using a `Select` tree, local ones using an `Ident`
         computeApplyEffect(tree, ctx)
 
 

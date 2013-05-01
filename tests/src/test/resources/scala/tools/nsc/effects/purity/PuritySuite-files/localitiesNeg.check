@@ -1,0 +1,50 @@
+newSource:4: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
+  def f1: Int @loc(this) = 1
+                           ^
+newSource:6: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
+  def f3: String @loc(this) = f2
+                              ^
+newSource:7: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+  def f4: String @loc() = f2
+                          ^
+newSource:9: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+  def f5: C @loc() = this
+                     ^
+newSource:11: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value a))))
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
+  def f6a(a: C): C @loc(this) = a
+                                ^
+newSource:12: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value a))))
+  def f6b(a: C): C @loc(a) = this
+                             ^
+newSource:14: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value a))))
+  def f7a(a: C): C @loc(a) = if (true) a else this
+                                              ^
+newSource:15: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value a))))
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
+  def f7b(a: C): C @loc(this) = if (true) a else this
+                                          ^
+newSource:16: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value a))))
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+  def f7c(a: C): C @loc() = if (true) a else this
+                                      ^
+newSource:16: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+  def f7c(a: C): C @loc() = if (true) a else this
+                                             ^
