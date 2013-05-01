@@ -30,4 +30,34 @@ class C {
   }
 
 
+  def f10a: Int @pure = {
+    var y = 1
+    def g: Unit @pure = {
+      def h = { y = 2 }
+      h
+    }
+    y
+  }
+
+  def f10: Int @pure = {
+    var y = 1
+    def g(): Int @loc(any) = {
+      def h1() = {
+        y = 2
+      }
+      def h2: Unit @loc(any) = {
+        y = 4
+      }
+      def h3: Unit @assign(y, any) = {
+        y = 6
+      }
+      h1()
+      h2
+      h3
+      1
+    }
+    g()
+  }
+
+
 }

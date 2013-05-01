@@ -17,7 +17,7 @@ trait PurityInfer extends Infer { this: PurityDomain =>
         val assignEff = Assigns((sym, rhsLoc))
         (rhsMod, rhsAssign join assignEff, AnyLoc)
 
-      case Ident(_) =>
+      case Ident(_) if !sym.isMethod =>
         if (sym.isValueParameter || sym.isLocal)
           (RefSet(), Assigns(), RefSet(SymRef(sym)))
         else

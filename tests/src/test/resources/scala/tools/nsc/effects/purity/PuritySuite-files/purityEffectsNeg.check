@@ -28,3 +28,23 @@ newSource:27: error: effect type mismatch;
  required: (RefSet(Set()),Assigns(Map(variable x -> RefSet(Set()))),AnyLoc)
     def inc(): Unit @assign(x) = { x = x + 1 }
                                      ^
+newSource:37: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map(variable y -> AnyLoc)),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+      h
+      ^
+newSource:49: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map(variable y -> AnyLoc)),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+        y = 4
+          ^
+newSource:54: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map(variable y -> AnyLoc)),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+      h1()
+        ^
+newSource:56: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map(variable y -> AnyLoc)),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+      h3
+      ^

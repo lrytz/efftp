@@ -52,6 +52,10 @@ class loc(references: Any*) extends Effect
  *
  * Note: the annotation `@assign(x)` is equivalent to `@assign(x, [fresh])`, and
  * not `@assign(x, any)`.
+ *
+ * Note: to annotate the absence of assignment effects one needs to annotate the
+ * method with either a @mod or a @loc annotation:
+ *   def f(): Unit @loc(any) = ..  // no assignments allowed
  */
 class assign(localVariable: Any, references: Any*) extends Effect
 
