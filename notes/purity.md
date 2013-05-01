@@ -22,6 +22,10 @@ ToDo
 
 # More implementation specific points
 
+- integrate ANF transform in all places where necessary
+
+- cannot use expected effect
+
 - for every local variable we need to know its initial locality
     - need to attach it somehow to its symbol
     - when the variable gets out of scope (Block) the references to it need to be replaced by the initial locality
@@ -67,5 +71,10 @@ ToDo
 - Need to replace out-of-scope variables in types, effects and localities. I guess this has to be done in
   computeEffect when the tree is a block.
 
+
+
+# Random Todos
+
+- disallow @mod(x) / @loc(x) where x is a repeated parameter
 
 

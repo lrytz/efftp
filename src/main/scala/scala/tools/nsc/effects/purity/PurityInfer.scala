@@ -1,6 +1,7 @@
-package scala.tools.nsc.effects.purity
+package scala.tools.nsc.effects
+package purity
 
-trait PurityInfer { this: PurityDomain =>
+trait PurityInfer extends Infer { this: PurityDomain =>
   import global._
   import lattice._
 
@@ -68,35 +69,58 @@ trait PurityInfer { this: PurityDomain =>
 
           case Assigns(as) =>
             val (localAssigns, otherAssigns) = as.partition(p => locals.contains(p._1))
-            (
-              substitute(localAssigns, allMod),
-              substitute(localAssigns, Assigns(otherAssigns)),
-              substitute(localAssigns, exprLoc))
+            val substMap: Map[VarRef, Locality] = localAssigns.map(p => (SymRef(p._1), p._2))
+            substitute(substMap, (allMod, Assigns(otherAssigns), exprLoc))
         }
 
 
-
       case _ =>
-        lattice.noModAnyResLoc
+        super.computeEffectImpl(tree, ctx)
     }
+  }
+
+  /**
+   * For method invocations need to
+   *
+   *  - substitute references to parameters by the argument localities in the resulting effect
+   *
+   *  - fix the result locality: super.computeApplyEffect joins all the involved localities, but the
+   *    real result locality is what is annotated on the function type. Effects and result localities
+   *    propagate differently.
+   */
+  override def combineApplyEffect(fun: Symbol, funEff: Effect, byValEffs: Map[Symbol, Effect],
+                                  repeatedEffs: Map[Symbol, List[Effect]], latent: Effect): Effect = {
+
+    val (resMod, resAssign, _) = super.combineApplyEffect(fun, funEff, byValEffs, repeatedEffs, latent)
+    val argLocs: Map[VarRef, Locality] = byValEffs map {
+      case (sym, eff) => (SymRef(sym), eff._3)
+    }
+    val substMap = {
+      if (fun.isLocal) argLocs // for local functions, `this` is not substituted
+      else argLocs + ((ThisRef(fun.owner), funEff._3))
+    }
+
+    val (_, _, resLoc) = fromAnnotation(fun.info)
+
+    substitute(substMap, (resMod, resAssign, resLoc))
   }
 
   def isLocalField(sym: Symbol) =
     sym.hasAnnotation(localClass)
 
-  def substitute(map: Map[Symbol, Locality], loc: Locality): Locality = loc match {
+  def substitute(map: Map[VarRef, Locality], e: Effect): Effect =
+    (substitute(map, e._1), substitute(map, e._2), substitute(map, e._3))
+
+  def substitute(map: Map[VarRef, Locality], loc: Locality): Locality = loc match {
     case AnyLoc =>
       AnyLoc
 
     case RefSet(refs) =>
-      val locs = refs.toList map {
-        case t @ ThisRef(_) => RefSet(t)
-        case s @ SymRef(sym) => map.getOrElse(sym, RefSet(s))
-      }
+      val locs = refs.toList.map(ref => map.getOrElse(ref, RefSet(ref)))
       joinAllLocalities(locs)
   }
 
-  def substitute(map: Map[Symbol, Locality], assignEff: AssignEff): AssignEff = assignEff match {
+  def substitute(map: Map[VarRef, Locality], assignEff: AssignEff): AssignEff = assignEff match {
     case AssignAny =>
       AssignAny
 

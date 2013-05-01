@@ -193,9 +193,9 @@ trait Infer { self: EffectDomain =>
   def computeApplyEffect(tree: Tree, ctx: EffectContext): Effect = {
     val treeInfo.Applied(fun, _, argss) = tree
     val funSym = fun.symbol
-    val (unaryParams, unaryArgs, repeatedArgs) = splitRepeatedParamss(funSym.paramss, argss)
+    val (unaryArgs, repeatedArgs) = splitRepeatedParamss(funSym.paramss, argss)
 
-    // calling inferEffect on `fun` would result in an infinite loop
+    // calling computeEffect on `fun` would result in an infinite loop
     val funEff   = fun match {
       case Select(qual, _) => computeEffect(qual, ctx)
       case Ident(_) => bottom
@@ -203,16 +203,18 @@ trait Infer { self: EffectDomain =>
 
     // for by-name parameters, the effect of the argument expression is only included if the
     // callee has a `@rel(x)` annotation for the by-name parameter x (done by `latent` below)
-    val (byNameEffs: Map[Symbol, Effect], byValEffs: List[Effect]) = {
-      val (byNameParamArgs, byValueParmArgs) = (unaryParams zip unaryArgs).partition(_._1.isByNameParam)
+    val (
+      byNameEffs: Map[Symbol, Effect],
+      byValEffs: Map[Symbol, Effect],
+      repeatedEffs: Map[Symbol, List[Effect]]) = {
+      val (byNameParamArgs, byValueParamArgs) = unaryArgs.partition(_._1.isByNameParam)
       // use no expected effect for inferring by-name parameter effects, otherwise effect mismatch
       // errors might be issued unnecessarily
       lazy val noExpectedCtx = ctx.copy(expected = None)
-      val byNameEffs0 = byNameParamArgs.map({
-        case (param, arg) => (param, computeEffect(arg, noExpectedCtx))
-      }).toMap
-      val byValEffs0 = byValueParmArgs.map(pa => computeEffect(pa._2, ctx)) ::: repeatedArgs.map(computeEffect(_, ctx))
-      (byNameEffs0, byValEffs0)
+      val byNameEffs0 = byNameParamArgs.map(pa => (pa._1, computeEffect(pa._2, noExpectedCtx)))
+      val byValEffs0 = byValueParamArgs.map(pa => (pa._1, computeEffect(pa._2, ctx)))
+      val repeatedEffs0 = repeatedArgs.map(pa => (pa._1, pa._2.map(computeEffect(_, ctx))))
+      (byNameEffs0, byValEffs0, repeatedEffs0)
     }
 
     val lat = {
@@ -220,22 +222,27 @@ trait Infer { self: EffectDomain =>
       else {
         // for non-repeated parameters, we remember the argument type and location in a map and pass it to `latent`.
         // if a parameter has a relative effect, the argument type and location define its expansion.
-        val paramLocs = unaryParams.map(ParamLoc)
+        val paramLocs = unaryArgs.map(pa => ParamLoc(pa._1))
         val thisLocMapping = fun match {
           case Select(qual, _) => Some(ThisLoc(funSym.owner) -> argTpeAndLoc(qual))
           case _ => None
         }
-        latent(funSym, paramLocs.zip(unaryArgs.map(argTpeAndLoc)).toMap ++ thisLocMapping, byNameEffs, ctx)
+        latent(funSym, paramLocs.zip(unaryArgs.map(pa => argTpeAndLoc(pa._2))).toMap ++ thisLocMapping, byNameEffs, ctx)
       }
     }
-    funEff u (byValEffs :\ bottom)(_ u _) u lat
+//    funEff u (byValEffs :\ bottom)(_ u _) u lat
+    combineApplyEffect(funSym, funEff, byValEffs, repeatedEffs, lat)
+  }
+
+  def combineApplyEffect(fun: Symbol, funEff: Effect, byValEffs: Map[Symbol, Effect], repeatedEffs: Map[Symbol, List[Effect]], latent: Effect): Effect = {
+    ((byValEffs.values ++ repeatedEffs.values.flatten) :\ funEff)(_ u _) u latent
   }
 
 
   /**
    * Returns the type and location of a tree which is passed to a method as argument.
    */
-  private val argTpeAndLoc: Tree => (Type, Option[Loc]) = arg => {
+  private def argTpeAndLoc(arg: Tree): (Type, Option[Loc]) = {
     val tp = arg.tpe
     arg match {
       case Ident(_) if arg.symbol.owner.isMethod =>
@@ -253,14 +260,22 @@ trait Infer { self: EffectDomain =>
    *   - the corresponding list of arguments
    *   - a list of arguments for repeated parameters
    */
-  private def splitRepeatedParamss(paramss: List[List[Symbol]], argss: List[List[Tree]]): (List[Symbol], List[Tree], List[Tree]) = (paramss, argss) match {
+  private def splitRepeatedParamss(paramss: List[List[Symbol]], argss: List[List[Tree]]): (Map[Symbol, Tree], Map[Symbol, List[Tree]]) = (paramss, argss) match {
     case (params :: paramss, args :: argss) =>
       val (unaryPairs, repeatedPairs) = params.zipAll(args, NoSymbol, EmptyTree).span(p => !definitions.isRepeated(p._1))
-      val (unaryParams, unaryArgs, repeatedArgs) = splitRepeatedParamss(paramss, argss)
-      (unaryPairs.map(_._1) ::: unaryParams, unaryPairs.map(_._2) ::: unaryArgs, repeatedPairs.map(_._2) ::: repeatedArgs)
+
+      val (unaryArgs, repeatedArgs) = splitRepeatedParamss(paramss, argss)
+      val repeatedArg: Option[(Symbol, List[Tree])] = repeatedPairs match {
+        case (sym, arg) :: ps => Some((sym, arg :: ps.map(_._2)))
+        case _ => None
+      }
+      (unaryArgs ++ unaryPairs, repeatedArgs ++ repeatedArg)
+
+//      val (unaryParams, unaryArgs, repeatedArgs) = splitRepeatedParamss(paramss, argss)
+//      (unaryPairs.map(_._1) ::: unaryParams, unaryPairs.map(_._2) ::: unaryArgs, repeatedPairs.map(_._2) ::: repeatedArgs)
 
     case _ =>
-      (Nil, Nil, Nil)
+      (Map(), Map())
   }
 
   /**
