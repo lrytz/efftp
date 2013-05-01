@@ -1,5 +1,24 @@
 import annotation.effects._
 
+class C {
+
+  def f1: Int @pure = 1
+  def f2: Int @pure = 1 + 1
+  def f3: Int @pure = f2 + 1
+
+  def f4: Int @mod(any) = 1
+  def f5: Int @mod(any) @loc(any) = 1
+  def f6: Int @loc(any) = 1
+
+  def f7: Int @pure = {
+    var x = 1
+    x = 2
+    x
+  }
+
+}
+
+/*
 class Counter {
   private var c = 0
   def inc(): Unit @mod(this) = {
@@ -26,6 +45,7 @@ object t {
   def t3: Int @pure = incAndRead(new Counter)
   def t4: Int @pure = incAndRead(c)
 }
+*/
 
 /*
 

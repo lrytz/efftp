@@ -620,7 +620,8 @@ trait TypeCheckerPlugin { self: EffectChecker =>
           val funSym = tree.symbol
           val enclMeth = funSym.enclMethod
           val enclRel = domain.relEffects(enclMeth)
-          val anfBody = maybeAnf(body, typer, pt)
+          lazy val bodyTyper = analyzer.newTyper(typer.context.makeNewScope(tree, funSym))
+          val anfBody = maybeAnf(body, bodyTyper, pt)
 
           val e = domain.computeEffect(anfBody, effectContext(None, enclRel, typer))
 
@@ -665,7 +666,8 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             }
 
             expectedEffect foreach (annotEff => {
-              val anfRhs = maybeAnf(rhs, typer, pt)
+              lazy val rhsTyper = analyzer.newTyper(typer.context.makeNewScope(ddef, meth))
+              val anfRhs = maybeAnf(rhs, rhsTyper, pt)
               domain.computeEffect(anfRhs, effectContext(Some(annotEff), relEffects(meth), typer))
             })
 

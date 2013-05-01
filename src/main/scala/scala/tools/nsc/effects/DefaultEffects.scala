@@ -37,9 +37,9 @@ trait DefaultEffects { self: EffectDomain =>
     val owner = fun.owner
 
     if (pureMethods.exists(p => p(fun))) {
-      Some(bottom)
+      Some(effectForPureAnnotated)
     } else if (classesWithPureMethods.contains(owner)) {
-      Some(bottom)
+      Some(effectForPureAnnotated)
     } else {
       None
     }

@@ -182,7 +182,7 @@ trait AnfTransform { self: EffectDomain =>
               (stats :+ valDef, Ident(valDef.name))
           }
         val core = if (targs.isEmpty) simpleFun else TypeApply(simpleFun, targs)
-        val newApply = argExprss.foldLeft(core)(Apply(_, _)) //.setSymbol(tree.symbol)
+        val newApply = argExprss.foldLeft(core)(Apply(_, _))
         val r = funStats ++ argStatss.flatten.flatten :+ newApply.setPos(tree.pos)
         r
 
@@ -191,7 +191,13 @@ trait AnfTransform { self: EffectDomain =>
 
       case ValDef(mods, name, tpt, rhs) if !mods.isLazy =>
         val stats :+ expr = transformToList(rhs)
-        stats :+ ValDef(mods, name, tpt, expr).setPos(tree.pos)
+        // calling `setSymbol` is important because (at least for now) we don't reset and re-type all
+        // of the already typed trees. so the already typed trees can refer to the symbol that was initially
+        // created for that ValDef. if we just insert an empty one here the typer will create a new symbol
+        // for it and things get out of sync. For ValDefs that already have a symbol the typer just uses that
+        // instead of creating a new one.
+        val anfVd = ValDef(mods, name, tpt, expr).setSymbol(tree.symbol)
+        stats :+ anfVd.setPos(tree.pos)
 
       case Assign(lhs, rhs) =>
         val stats :+ expr = transformToList(rhs)
@@ -210,7 +216,7 @@ trait AnfTransform { self: EffectDomain =>
 
 
       case LabelDef(name, params, rhs) =>
-        List(LabelDef(name, params, mkBlock(transformToList(rhs))))
+        List(LabelDef(name, params, mkBlock(transformToList(rhs))).setSymbol(tree.symbol))
 
       case TypeApply(fun, targs) =>
         val funStats :+ simpleFun = transformToList(fun)

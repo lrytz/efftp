@@ -28,20 +28,22 @@ trait PurityInfer extends Infer { this: PurityDomain =>
 
 
       // assignments to fields - note that variable fields are usually modified using the setter
-      case Assign(Select(qual, _), rhs) =>
-        assert(sym.isVariable && !sym.isLocal, s"expected variable field, found $sym")
+      case Assign(sel @ Select(qual, _), rhs) =>
+        val fieldSym = sel.symbol
+        assert(fieldSym.isVariable && !fieldSym.isLocal, s"expected variable field, found $fieldSym")
         val (qualMod, qualAssign, qualLoc) = computeEffect(qual, ctx)
         val (rhsMod, rhsAssign, rhsLoc) = computeEffect(rhs, ctx)
-        val assignMod = if (isLocalField(sym)) qualLoc join rhsLoc
+        val assignMod = if (isLocalField(fieldSym)) qualLoc join rhsLoc
                         else qualLoc
         // result locality AnyLoc: assignments evaluate to the unit value ()
         (qualMod join rhsMod join assignMod, qualAssign join rhsAssign, AnyLoc)
 
 
-      case Assign(Ident(name), rhs) =>
-        assert(sym.isVariable && sym.isLocal, s"expected local variable, found $sym")
+      case Assign(id @ Ident(name), rhs) =>
+        val varSym = id.symbol
+        assert(varSym.isVariable && varSym.isLocal, s"expected local variable, found $sym")
         val (rhsEff, rhsAssign, rhsLoc) = computeEffect(rhs, ctx)
-        val assignEff = Assigns((sym, rhsLoc))
+        val assignEff = Assigns((varSym, rhsLoc))
         (rhsEff, rhsAssign join assignEff, AnyLoc)
 
 
@@ -53,15 +55,29 @@ trait PurityInfer extends Infer { this: PurityDomain =>
 
 
       case Block(stats, expr) =>
-        val (statsMods, statsAssigns, _) = stats.map(computeEffect(_, ctx)).unzip3
-        val (exprMod, exprAssign, exprLoc) = computeEffect(expr, ctx)
-
-        val allMod = joinAllLocalities(statsMods, exprMod)
-        val allAssign = joinAllAssignEffs(statsAssigns, exprAssign)
+        // allow effects to local variables the block
 
         val locals = stats collect {
           case vd: ValDef => vd.symbol
         }
+
+        val (statsExpected, exprExpected) = ctx.expected match {
+          case None =>
+            (None, None)
+
+          case Some((mod, assign, loc)) =>
+            val localsLocality = RefSet(locals.map(SymRef).toSet[VarRef])
+            val exMod = mod join localsLocality
+            val exAssign = assign join Assigns(locals.map(sym => (sym, AnyLoc)).toMap)
+            val exLoc = loc join localsLocality
+            (Some((exMod, exAssign, AnyLoc)), Some((exMod, exAssign, exLoc)))
+        }
+
+        val (statsMods, statsAssigns, _) = stats.map(computeEffect(_, ctx.copy(expected = statsExpected))).unzip3
+        val (exprMod, exprAssign, exprLoc) = computeEffect(expr, ctx.copy(expected = exprExpected))
+
+        val allMod = joinAllLocalities(statsMods, exprMod)
+        val allAssign = joinAllAssignEffs(statsAssigns, exprAssign)
 
         allAssign match {
           case AssignAny =>
@@ -76,6 +92,10 @@ trait PurityInfer extends Infer { this: PurityDomain =>
 
       case New(tpt) =>
         bottom // pure and fresh
+
+
+      case Literal(c) =>
+        effectForPureAnnotated // pure but not fresh
 
       case _ =>
         super.computeEffectImpl(tree, ctx)
