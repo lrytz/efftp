@@ -13,3 +13,18 @@ newSource:6: error: effect type mismatch;
  required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
   def f3: String @loc() = "hai"
                           ^
+newSource:11: error: effect type mismatch;
+ found   : (AnyLoc,AssignAny,AnyLoc)
+ required: (RefSet(Set(SymRef(variable x))),Assigns(Map(variable x -> AnyLoc)),AnyLoc)
+    inc()                     // with no effect annotation - so in this case, `inc` gets the top effect
+       ^
+newSource:19: error: effect type mismatch;
+ found   : (RefSet(Set()),AssignAny,AnyLoc)
+ required: (RefSet(Set(SymRef(variable x))),Assigns(Map(variable x -> AnyLoc)),AnyLoc)
+    inc()
+       ^
+newSource:27: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map(variable x -> AnyLoc)),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map(variable x -> RefSet(Set()))),AnyLoc)
+    def inc(): Unit @assign(x) = { x = x + 1 }
+                                     ^

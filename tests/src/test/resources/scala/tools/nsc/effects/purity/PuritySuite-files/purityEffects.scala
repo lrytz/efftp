@@ -16,6 +16,19 @@ class C {
     x
   }
 
+  def f8: Int @pure = {
+    var x = 1
+    def inc() = { x = x + 1 }
+    inc(); inc();
+    x
+  }
+
+  def f9: Int @pure = {
+    var x = 1
+    def inc(): Unit @assign(x, any) = { x = x + 1 }
+    inc(); inc();
+    x
+  }
 }
 
 /*

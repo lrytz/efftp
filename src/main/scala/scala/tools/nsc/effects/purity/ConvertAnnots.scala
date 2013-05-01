@@ -9,7 +9,7 @@ trait ConvertAnnots { this: PurityDomain =>
   lazy val assignClass = rootMirror.getClassByName(newTypeName("scala.annotation.effects.assign"))
   lazy val locClass    = rootMirror.getClassByName(newTypeName("scala.annotation.effects.loc"))
 
-  lazy val annotationClasses = List(modClass, locClass)
+  lazy val annotationClasses = List(modClass, assignClass, locClass)
 
   lazy val localClass   = rootMirror.getClassByName(newTypeName("scala.annotation.effects.local"))
   lazy val anyLocObject = rootMirror.getModuleByName(newTermName("scala.annotation.effects.any"))
@@ -31,7 +31,7 @@ trait ConvertAnnots { this: PurityDomain =>
     /* When there is no store or no locality annotation, we use these defaults:
      *  - "@mod()" (no modifications), if there's no annotation in the "store" domain
      *  - "@loc(any)" if there's no locality annotation */
-    if (modEff.isEmpty && resLoc.isEmpty) default
+    if (modEff.isEmpty && assignEff.isEmpty && resLoc.isEmpty) default
     else (
       modEff.getOrElse(RefSet()),
       assignEff.getOrElse(Assigns()),
@@ -112,7 +112,8 @@ trait ConvertAnnots { this: PurityDomain =>
 
       case RefSet(refs) :: locs =>
         refs.toList match {
-          case List(SymRef(sym)) => Assigns((sym, joinAllLocalities(locs)))
+          case List(SymRef(sym)) =>
+            Assigns((sym, joinAllLocalities(locs)))
           case _ =>
             abort(msg)
         }

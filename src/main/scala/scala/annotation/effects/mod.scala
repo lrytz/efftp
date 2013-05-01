@@ -49,6 +49,9 @@ class loc(references: Any*) extends Effect
  *
  * Once `a` gets out of scope in the above example, the effect `@mod(a)` is
  * transformed to `@mod(any)`. because of the assign effect.
+ *
+ * Note: the annotation `@assign(x)` is equivalent to `@assign(x, [fresh])`, and
+ * not `@assign(x, any)`.
  */
 class assign(localVariable: Any, references: Any*) extends Effect
 

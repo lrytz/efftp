@@ -492,9 +492,10 @@ trait TypeCheckerPlugin { self: EffectChecker =>
       })
     }
 
-    def maybeAnf(tree: Tree, typer: => Typer, pt: => Type) =
+    def maybeAnf(tree: Tree, typer: => Typer, pt: => Type) = {
       if (requireANF) domain.AnfTransformer.transformToAnf(tree, typer, pt)
       else tree
+    }
 
 
     /**
