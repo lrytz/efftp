@@ -36,8 +36,8 @@ class EffectsPlugin(val global: Global) extends Plugin {
           val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
         }
 
-      case List("state") =>
-        new state.StateDomain {
+      case List("purity") =>
+        new purity.PurityDomain {
           val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
         }
 

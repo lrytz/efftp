@@ -74,6 +74,9 @@ trait PurityInfer extends Infer { this: PurityDomain =>
         }
 
 
+      case New(tpt) =>
+        bottom // pure and fresh
+
       case _ =>
         super.computeEffectImpl(tree, ctx)
     }
