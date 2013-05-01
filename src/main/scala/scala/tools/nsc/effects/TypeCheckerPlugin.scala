@@ -261,42 +261,42 @@ trait TypeCheckerPlugin { self: EffectChecker =>
       val typedConstrBody =
         if (alreadyTyped) constrBody
         else typeCheckRhs(constrBody, defTyper, WildcardType)
+      val anfConstrBody = maybeAnf(typedConstrBody, defTyper, WildcardType)
 
       val relEnv = relEffects(constrSym)
 
-      // @ANF
-      val rhsE = domain.computeEffect(typedConstrBody, effectContext(expected, relEnv, defTyper, superContextMsg))
+      val rhsE = domain.computeEffect(anfConstrBody, effectContext(expected, relEnv, defTyper, superContextMsg))
 
       val fields = templ.body collect {
         // lazy vals don't contribute to the constructor effect
         case vd: ValDef if !(vd.symbol.isParamAccessor || vd.symbol.isEarlyInitialized || vd.symbol.isLazy) => vd
       }
       val includeFieldsEff = (rhsE /: fields)((e, vd) => {
+        lazy val fieldTyper = analyzer.newTyper(templTyper.context.makeNewScope(vd, vd.symbol))
         val typedFieldRhs =
           if (alreadyTyped) vd.rhs
           else {
-            val fieldTyper = analyzer.newTyper(templTyper.context.makeNewScope(vd, vd.symbol))
             typeCheckRhs(vd.rhs, fieldTyper, vd.symbol.tpe)
           }
-        // @ANF
-        val fieldEff = domain.computeEffect(typedFieldRhs, effectContext(expected, relEnv, templTyper, fieldContextMsg))
+        val anfFieldRhs = maybeAnf(typedFieldRhs, fieldTyper, vd.symbol.tpe)
+        val fieldEff = domain.computeEffect(anfFieldRhs, effectContext(expected, relEnv, templTyper, fieldContextMsg))
         e u fieldEff
       })
 
       val statements = templ.body.filterNot(_.isDef)
-      val typedStats =
+      val anfStats =
         if (alreadyTyped) statements
         else {
           val statsOwner = templ.symbol orElse constrSym.owner.newLocalDummy(templ.pos)
-          // TODO: would need to handle imports within the class, see typedStats
+          // TODO: would need to handle imports within the class, see typedStats in Typers
           statements.map(stat => {
             val localTyper = analyzer.newTyper(templTyper.context.make(stat, statsOwner))
-            localTyper.typed(stat)
+            val typedStat = localTyper.typed(stat)
+            maybeAnf(typedStat, localTyper, WildcardType)
           })
         }
 
-      val includeStatsEff = (includeFieldsEff /: typedStats)((e, stat) =>
-        // @ANF (in fact, need to transform to anf before typing, see `typedStats`)
+      val includeStatsEff = (includeFieldsEff /: anfStats)((e, stat) =>
         e u domain.computeEffect(stat, effectContext(expected, relEnv, templTyper, statementContextMsg))
       )
 
@@ -492,6 +492,11 @@ trait TypeCheckerPlugin { self: EffectChecker =>
       })
     }
 
+    def maybeAnf(tree: Tree, typer: => Typer, pt: => Type) =
+      if (requireANF) domain.AnfTransformer.transformToAnf(tree, typer, pt)
+      else tree
+
+
     /**
      * This method allows modifying the type which is assigned to a definition's symbol during Namer.
      * The effect of a method is inferred if also its type is inferred.
@@ -505,13 +510,9 @@ trait TypeCheckerPlugin { self: EffectChecker =>
           // see comment on `def relEffects`
           val relEnv = relEffects(sym.owner.enclMethod)
           val typedRhs = typeCheckRhs(rhs, typer, pt)
+          val anfRhs = maybeAnf(typedRhs, typer, pt)
 
-          val maybeAnf =
-            if (requireANF) domain.AnfTransformer.transformToAnf(typedRhs, typer, pt)
-            else typedRhs
-
-          // @ANF
-          (domain.computeEffect(maybeAnf, effectContext(None, relEnv, typer)), relEnv)
+          (domain.computeEffect(anfRhs, effectContext(None, relEnv, typer)), relEnv)
         }
 
         def isCaseApply          = sym.isSynthetic && sym.isCase && sym.name == nme.apply
@@ -563,12 +564,13 @@ trait TypeCheckerPlugin { self: EffectChecker =>
 
       case vdef @ ValDef(_, _, tpt, rhs) if vdef.symbol.isLazy && tptWasInferred(tpt) =>
         val typedRhs = typeCheckRhs(rhs, typer, pt)
+        val anfRhs = maybeAnf(typedRhs, typer, pt)
+
         // NOTE: if this lazy val is a field the relative environment is NOT the one of the class constructor,
         // but really the one of the enclosing method. this is correct: the lazy val is not evaluated during
         // the constructor, but whenever the field is accessed.
         val relEnv = relEffects(vdef.symbol.enclMethod)
-        // @ANF
-        val e = domain.computeEffect(typedRhs, effectContext(None, relEnv, typer))
+        val e = domain.computeEffect(anfRhs, effectContext(None, relEnv, typer))
         setEffect(tpe, e, relEnv)
 
       case impl: Template =>
@@ -605,7 +607,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
      * For term trees, we remove all effect annotations from the inferred type. We don't store effects of
      * subtrees in their types.
      *
-     * For Function trees, we assign compute the effect of the function's body and assign to the function
+     * For Function trees, we compute the effect of the function's body and assign to the function
      * symbol a refined function type which has the inferred effect
      *
      * For all method definitions which have an annotated return type (and therefore an annotated effect)
@@ -618,8 +620,9 @@ trait TypeCheckerPlugin { self: EffectChecker =>
           val funSym = tree.symbol
           val enclMeth = funSym.enclMethod
           val enclRel = domain.relEffects(enclMeth)
-          // @ANF
-          val e = domain.computeEffect(body, effectContext(None, enclRel, typer))
+          val anfBody = maybeAnf(body, typer, pt)
+
+          val e = domain.computeEffect(anfBody, effectContext(None, enclRel, typer))
 
           // we also compute the effect of the function body assuming there are no relative effects.
           // if that effect is the same (smaller or equal) as the effect e, it means that the body
@@ -631,8 +634,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
           val effectiveRel =
             if (enclRel.isEmpty) Nil
             else {
-              // @ANF
-              val eNoRel = domain.computeEffect(body, effectContext(None, Nil, typer))
+              val eNoRel = domain.computeEffect(anfBody, effectContext(None, Nil, typer))
               if (eNoRel <= e) Nil else enclRel
             }
 
@@ -663,8 +665,8 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             }
 
             expectedEffect foreach (annotEff => {
-              // @ANF
-              domain.computeEffect(rhs, effectContext(Some(annotEff), relEffects(meth), typer))
+              val anfRhs = maybeAnf(rhs, typer, pt)
+              domain.computeEffect(anfRhs, effectContext(Some(annotEff), relEffects(meth), typer))
             })
 
           case _: ClassDef | _: ModuleDef =>
