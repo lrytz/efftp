@@ -60,17 +60,11 @@ trait ConvertAnnots { this: PurityDomain =>
         case (loc, ann) =>
           // the localities in the arguments of this locality
           val annArgLocalities = ann.args.map(localityOf)
-          joinLocalities(annArgLocalities, init = loc)
+          joinAllLocalities(annArgLocalities, init = loc)
       }
       Some(res)
     }
   }
-
-
-  private def joinLocalities(locs: List[Locality], init: Locality = RefSet()): Locality =
-    (init /: locs) {
-      case (locA, locB) => locA join locB
-    }
 
 
   private def localityOf(arg: Tree): Locality = {
@@ -102,10 +96,7 @@ trait ConvertAnnots { this: PurityDomain =>
   private def assingEffFromAnnotations(annots: List[AnnotationInfo]): Option[AssignEff] = {
     if (annots.isEmpty) None
     else {
-      val eff = ((Assigns(): AssignEff) /: annots)({
-        case (assignEff, annot) =>
-          assignEff.join(assignEffFromAnnot(annot))
-      })
+      val eff = joinAllAssignEffs(annots map assignEffFromAnnot)
       Some(eff)
     }
   }
@@ -121,7 +112,7 @@ trait ConvertAnnots { this: PurityDomain =>
 
       case RefSet(refs) :: locs =>
         refs.toList match {
-          case List(SymRef(sym)) => Assigns((sym, joinLocalities(locs)))
+          case List(SymRef(sym)) => Assigns((sym, joinAllLocalities(locs)))
           case _ =>
             abort(msg)
         }

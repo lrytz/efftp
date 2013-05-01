@@ -6,8 +6,17 @@ OK
 - assigning has an effect (@mod for fields, @assign for local variables)
 
 ToDo
-- substitute variables that get out of scope in type, effect and locality (Block)
+- substitute variables that get out of scope in effect and locality (Block)
+  => also need to do it in result type, but this is not possible in computeEffect, there
+     we can't modify the types.. need another hook
+  => maybe we don't need to do anything, the references to those local symbols can only be in
+     effects of functions, and those effects are always obtained through computeEffect which
+     already replaces the local vars? we'll see.
+
+
+
 - substitute argument localities in effect, locality and result type when invoking a method
+  => similar as above, for result type can't do it in computeEffect
 
 
 

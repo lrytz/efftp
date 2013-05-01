@@ -51,7 +51,30 @@ trait PurityInfer { this: PurityDomain =>
         (qualMod, qualAssign, resloc)
 
 
-//      case Block
+      case Block(stats, expr) =>
+        val (statsMods, statsAssigns, _) = stats.map(computeEffect(_, ctx)).unzip3
+        val (exprMod, exprAssign, exprLoc) = computeEffect(expr, ctx)
+
+        val allMod = joinAllLocalities(statsMods, exprMod)
+        val allAssign = joinAllAssignEffs(statsAssigns, exprAssign)
+
+        val locals = stats collect {
+          case vd: ValDef => vd.symbol
+        }
+
+        allAssign match {
+          case AssignAny =>
+            (AnyLoc, AssignAny, AnyLoc)
+
+          case Assigns(as) =>
+            val (localAssigns, otherAssigns) = as.partition(p => locals.contains(p._1))
+            (
+              substitute(localAssigns, allMod),
+              substitute(localAssigns, Assigns(otherAssigns)),
+              substitute(localAssigns, exprLoc))
+        }
+
+
 
       case _ =>
         lattice.noModAnyResLoc
@@ -60,4 +83,26 @@ trait PurityInfer { this: PurityDomain =>
 
   def isLocalField(sym: Symbol) =
     sym.hasAnnotation(localClass)
+
+  def substitute(map: Map[Symbol, Locality], loc: Locality): Locality = loc match {
+    case AnyLoc =>
+      AnyLoc
+
+    case RefSet(refs) =>
+      val locs = refs.toList map {
+        case t @ ThisRef(_) => RefSet(t)
+        case s @ SymRef(sym) => map.getOrElse(sym, RefSet(s))
+      }
+      joinAllLocalities(locs)
+  }
+
+  def substitute(map: Map[Symbol, Locality], assignEff: AssignEff): AssignEff = assignEff match {
+    case AssignAny =>
+      AssignAny
+
+    case Assigns(as) =>
+      Assigns(as map {
+        case (sym, loc) => (sym, substitute(map, loc))
+      })
+  }
 }

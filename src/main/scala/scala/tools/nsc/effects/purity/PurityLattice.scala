@@ -117,6 +117,10 @@ trait PurityLattice extends EffectLattice {
     def apply(ref: VarRef): RefSet = new RefSet(ref)
   }
 
+  def joinAllLocalities(locs: List[Locality], init: Locality = RefSet()): Locality =
+    (init /: locs) {
+      case (locA, locB) => locA join locB
+    }
 
 
   sealed trait AssignEff {
@@ -175,4 +179,9 @@ trait PurityLattice extends EffectLattice {
         b.contains(aSym) && aLoc.lte(b(aSym))
     })
   }
+
+  def joinAllAssignEffs(locs: List[AssignEff], init: AssignEff = Assigns()): AssignEff =
+    (init /: locs) {
+      case (effA, effB) => effA join effB
+    }
 }
