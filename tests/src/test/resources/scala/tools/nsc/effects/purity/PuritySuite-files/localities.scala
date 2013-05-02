@@ -22,5 +22,17 @@ class C {
   }
   
   
+  // non-local field selection
+  
+  trait E
+  trait D {
+    val x: E
+  }
 
+  def f9(d: D): E @loc(any) = d.x
+  def f10(d: D): D @loc(d) = {
+    val d1 = d
+    d1
+  }
+  
 }

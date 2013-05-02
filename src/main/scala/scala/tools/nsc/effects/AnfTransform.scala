@@ -156,7 +156,7 @@ trait AnfTransform { self: EffectDomain =>
 
     def mkBlock(trees: List[Tree]): Tree = trees match {
       case List(expr) => expr
-      case stats :+ expr => Block(stats, expr)
+      case stats :+ expr => Block(stats, expr).setPos(expr.pos)
     }
 
     def transformToList(tree: Tree): List[Tree] = tree match {
@@ -179,9 +179,9 @@ trait AnfTransform { self: EffectDomain =>
             case Arg(arg, _, argName) =>
               val (stats :+ expr) = transformToList(arg)
               val valDef = mkVal(argName, expr, arg.pos)
-              (stats :+ valDef, Ident(valDef.name))
+              (stats :+ valDef, Ident(valDef.name).setPos(arg.pos))
           }
-        val core = if (targs.isEmpty) simpleFun else TypeApply(simpleFun, targs)
+        val core = if (targs.isEmpty) simpleFun else TypeApply(simpleFun, targs).setPos(tree.pos)
         val newApply = argExprss.foldLeft(core)(Apply(_, _))
         val r = funStats ++ argStatss.flatten.flatten :+ newApply.setPos(tree.pos)
         r
