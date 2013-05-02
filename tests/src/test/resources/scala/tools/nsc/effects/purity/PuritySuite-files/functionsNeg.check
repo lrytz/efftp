@@ -1,0 +1,15 @@
+newSource:17: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
+ required: (RefSet(Set(SymRef(value anon))),Assigns(Map(value anon -> AnyLoc)),RefSet(Set(SymRef(value anon))))
+    anon.appliquer()
+                  ^
+newSource:21: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+      def appliquer(): E @loc() = d.y
+                                    ^
+newSource:28: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
+ required: (RefSet(Set(SymRef(value fun))),Assigns(Map(value fun -> AnyLoc)),RefSet(Set(SymRef(value fun))))
+    fun()
+       ^

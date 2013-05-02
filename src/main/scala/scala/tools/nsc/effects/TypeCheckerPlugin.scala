@@ -621,8 +621,15 @@ trait TypeCheckerPlugin { self: EffectChecker =>
           val funSym = tree.symbol
           val enclMeth = funSym.enclMethod
           val enclRel = domain.relEffects(enclMeth)
+
           lazy val bodyTyper = analyzer.newTyper(typer.context.makeNewScope(tree, funSym))
-          val anfBody = maybeAnf(body, bodyTyper, pt)
+          lazy val respt: Type = {
+            if (definitions.isFunctionType(pt))
+              pt.normalize.typeArgs.last
+            else
+              WildcardType
+          }
+          val anfBody = maybeAnf(body, bodyTyper, respt)
 
           val e = domain.computeEffect(anfBody, effectContext(None, enclRel, typer))
 

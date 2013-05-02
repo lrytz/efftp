@@ -1,5 +1,17 @@
 # Todos
 
+- the anf transform probably should not descend into Function trees - the plugin will anyway transform
+  the body of Functions when necessary. same for method definitinos and lazy vals (check if we do).
+
+- anf transform should conserve trees if their children are not changed. there's no reason to create
+  a new ValDef (and type check it) if the rhs is already in ANF
+
+- type checking the anf-transformed tree will call pluginsTyped of the plugin (and other functions of
+  the plugin) ==> make sure that this has no unexepcted behavior
+    - method and function bodies are anf-transformed again..!!!
+
+
+
 - should probably erase the attributes (types and symbols) on the anf trees before type-checking them.
   the owner chain of the existing symbols can be invalidated.
 

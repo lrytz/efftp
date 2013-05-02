@@ -48,7 +48,19 @@ class C {
   def f12(d: D): E @loc(d) = d.y
   def f13(d: D): Any @loc(d) = if (true) d else d.y
   def f14(d: D): E @loc(d) = if (true) d.y else if (false) d.z.y else d.z.z.y
-  def f15(d: D): E @loc(any) = if(true) d.z.x else d.z.z.y
+
+  def f15(d: D): E @loc(d) = {
+    val da = d.z.z
+    def foo(): E @loc(da, d) = {
+      if (true) da.y else d.y
+    }
+    foo()
+  }
+
+  def f16(d: D): D @loc(d) = {
+    def foo() = d.z.z
+    foo()
+  }
 }
 
 
