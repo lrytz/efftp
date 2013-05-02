@@ -12,16 +12,16 @@ class C {
   object obj extends E
   
   
-  def f1(d: D): Unit @mod(d) = {
+  def f1(d: D): Unit @mod() = {
     d.i = 1
   }
   
-  def f2(d: D, e: E): Unit @mod(d) = {
+  def f2(d: D, e: E): Unit @mod() = {
     d.eGlob = e
   }
 
-  def f3(d: D, e: E): Unit @mod(d, e) = {
+  def f3(d: D, e: E): Unit @mod() = {
     d.eLoc = e
   }
-
+  
 }

@@ -1,0 +1,15 @@
+newSource:16: error: effect type mismatch;
+ found   : (RefSet(Set(SymRef(value d))),Assigns(Map()),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+    d.i = 1
+        ^
+newSource:20: error: effect type mismatch;
+ found   : (RefSet(Set(SymRef(value d))),Assigns(Map()),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+    d.eGlob = e
+            ^
+newSource:24: error: effect type mismatch;
+ found   : (RefSet(Set(SymRef(value d), SymRef(value e))),Assigns(Map()),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+    d.eLoc = e
+           ^
