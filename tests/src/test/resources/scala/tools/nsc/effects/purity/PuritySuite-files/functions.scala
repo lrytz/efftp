@@ -43,6 +43,25 @@ class C {
     da.y
   }
   
+  def f5a(): Int @loc(any) = {
+    val fun = () => {
+      var x = 1
+      x + 1
+      x
+    }
+    fun()
+  }
+  
+  
+  def f5b(): Int @loc(any) = {
+    val fun: (() => Int) { def apply(): Int @loc(any) } = () => {
+      var x = 1
+      x + 1
+      x
+    }
+    fun()
+  }
+  
   
 }
 

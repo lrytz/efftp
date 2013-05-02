@@ -148,7 +148,7 @@ trait PurityInfer extends Infer { this: PurityDomain =>
           joinAllAssignEffs(blockAssign :: catchesAssigns, finalizerAssign),
           joinAllLocalities(catchesLocs, blockLoc))
 
-
+          
       case _ =>
         super.computeEffectImpl(tree, ctx)
     }

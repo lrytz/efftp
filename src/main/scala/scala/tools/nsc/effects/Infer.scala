@@ -85,10 +85,7 @@ trait Infer { self: EffectDomain =>
 
       /*** Method Invocations ***/
 
-      case _: Apply =>
-        computeApplyEffect(tree, ctx)
-
-      case _: TypeApply =>
+      case _: Apply | _: TypeApply =>
         computeApplyEffect(tree, ctx)
 
       case (_: Ident | _: Select) if sym.isMethod =>
@@ -194,45 +191,50 @@ trait Infer { self: EffectDomain =>
   def computeApplyEffect(tree: Tree, ctx: EffectContext): Effect = {
     val treeInfo.Applied(fun, _, argss) = tree
     val funSym = fun.symbol
-    val (unaryArgs, repeatedArgs) = splitRepeatedParamss(funSym.paramss, argss)
-
-    // calling computeEffect on `fun` would result in an infinite loop
-    val funEff   = fun match {
-      case Select(qual, _) => computeEffect(qual, ctx)
-      case Ident(_) => bottom
-    }
-
-    // for by-name parameters, the effect of the argument expression is only included if the
-    // callee has a `@rel(x)` annotation for the by-name parameter x (done by `latent` below)
-    val (
-      byNameEffs: Map[Symbol, Effect],
-      byValEffs: Map[Symbol, Effect],
-      repeatedEffs: Map[Symbol, List[Effect]]) = {
-      val (byNameParamArgs, byValueParamArgs) = unaryArgs.partition(_._1.isByNameParam)
-      // use no expected effect for inferring by-name parameter effects, otherwise effect mismatch
-      // errors might be issued unnecessarily
-      lazy val noExpectedCtx = ctx.copy(expected = None)
-      val byNameEffs0 = byNameParamArgs.map(pa => (pa._1, computeEffect(pa._2, noExpectedCtx)))
-      val byValEffs0 = byValueParamArgs.map(pa => (pa._1, computeEffect(pa._2, ctx)))
-      val repeatedEffs0 = repeatedArgs.map(pa => (pa._1, pa._2.map(computeEffect(_, ctx))))
-      (byNameEffs0, byValEffs0, repeatedEffs0)
-    }
-
-    val lat = {
-      if (hasRelativeEffect(fun, ctx)) bottom
-      else {
-        // for non-repeated parameters, we remember the argument type and location in a map and pass it to `latent`.
-        // if a parameter has a relative effect, the argument type and location define its expansion.
-        val paramLocs = unaryArgs.map(pa => ParamLoc(pa._1))
-        val thisLocMapping = fun match {
-          case Select(qual, _) => Some(ThisLoc(funSym.owner) -> argTpeAndLoc(qual))
-          case _ => None
-        }
-        latent(funSym, paramLocs.zip(unaryArgs.map(pa => argTpeAndLoc(pa._2))).toMap ++ thisLocMapping, byNameEffs, ctx)
+    
+    // support for while loops: the jump has no effect.
+    if (funSym.isLabel) lattice.effectForPureAnnotated
+    else {
+      val (unaryArgs, repeatedArgs) = splitRepeatedParamss(funSym.paramss, argss)
+  
+      // calling computeEffect on `fun` would result in an infinite loop
+      val funEff   = fun match {
+        case Select(qual, _) => computeEffect(qual, ctx)
+        case Ident(_) => bottom
       }
+  
+      // for by-name parameters, the effect of the argument expression is only included if the
+      // callee has a `@rel(x)` annotation for the by-name parameter x (done by `latent` below)
+      val (
+        byNameEffs: Map[Symbol, Effect],
+        byValEffs: Map[Symbol, Effect],
+        repeatedEffs: Map[Symbol, List[Effect]]) = {
+        val (byNameParamArgs, byValueParamArgs) = unaryArgs.partition(_._1.isByNameParam)
+        // use no expected effect for inferring by-name parameter effects, otherwise effect mismatch
+        // errors might be issued unnecessarily
+        lazy val noExpectedCtx = ctx.copy(expected = None)
+        val byNameEffs0 = byNameParamArgs.map(pa => (pa._1, computeEffect(pa._2, noExpectedCtx)))
+        val byValEffs0 = byValueParamArgs.map(pa => (pa._1, computeEffect(pa._2, ctx)))
+        val repeatedEffs0 = repeatedArgs.map(pa => (pa._1, pa._2.map(computeEffect(_, ctx))))
+        (byNameEffs0, byValEffs0, repeatedEffs0)
+      }
+  
+      val lat = {
+        if (hasRelativeEffect(fun, ctx)) bottom
+        else {
+          // for non-repeated parameters, we remember the argument type and location in a map and pass it to `latent`.
+          // if a parameter has a relative effect, the argument type and location define its expansion.
+          val paramLocs = unaryArgs.map(pa => ParamLoc(pa._1))
+          val thisLocMapping = fun match {
+            case Select(qual, _) => Some(ThisLoc(funSym.owner) -> argTpeAndLoc(qual))
+            case _ => None
+          }
+          latent(funSym, paramLocs.zip(unaryArgs.map(pa => argTpeAndLoc(pa._2))).toMap ++ thisLocMapping, byNameEffs, ctx)
+        }
+      }
+  //    funEff u (byValEffs :\ bottom)(_ u _) u lat
+      combineApplyEffect(funSym, funEff, byValEffs, repeatedEffs, lat)
     }
-//    funEff u (byValEffs :\ bottom)(_ u _) u lat
-    combineApplyEffect(funSym, funEff, byValEffs, repeatedEffs, lat)
   }
 
   def combineApplyEffect(fun: Symbol, funEff: Effect, byValEffs: Map[Symbol, Effect], repeatedEffs: Map[Symbol, List[Effect]], latent: Effect): Effect = {

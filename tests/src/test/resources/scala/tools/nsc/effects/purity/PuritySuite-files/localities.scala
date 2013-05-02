@@ -61,28 +61,21 @@ class C {
     def foo() = d.z.z
     foo()
   }
+  
+  
+  object obj extends E { val x = 1 }
+  
+  def f17: E @loc(any) = obj
+  
+  def f18(d: D): E @loc(d) = {
+    var da = d.z
+    var x = 0
+    while(x < 10) {
+      da = da.z
+      da
+    }
+    da.y
+  }
+
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

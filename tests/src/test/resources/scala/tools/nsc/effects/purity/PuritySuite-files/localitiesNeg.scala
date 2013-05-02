@@ -53,4 +53,10 @@ class C {
     def foo() = d.z.z
     foo()
   }
+
+  
+  object obj extends E { val x = 1 }
+  
+  def f17a: E @loc() = obj
+  def f17b: E @loc(this) = obj
 }
