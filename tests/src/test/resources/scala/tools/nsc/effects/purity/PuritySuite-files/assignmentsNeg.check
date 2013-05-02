@@ -48,3 +48,13 @@ newSource:56: error: effect type mismatch;
  required: (RefSet(Set()),Assigns(Map()),AnyLoc)
       h3
       ^
+newSource:66: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map(variable x -> AnyLoc)),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+      case s if {x = 1; true} => {x = 3}
+                   ^
+newSource:66: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map(variable x -> AnyLoc)),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+      case s if {x = 1; true} => {x = 3}
+                                    ^

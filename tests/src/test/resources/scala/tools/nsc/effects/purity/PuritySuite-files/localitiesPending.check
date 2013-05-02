@@ -1,0 +1,5 @@
+newSource:5: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value c))))
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value a))))
+    case c: C => c
+                 ^

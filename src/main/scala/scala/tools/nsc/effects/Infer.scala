@@ -67,6 +67,8 @@ trait Infer { self: EffectDomain =>
       /*** Pattern Matching, some special cases ***/
 
       case _: CaseDef =>
+        // @TODO: patternMode is only used for some sanity checks, but still: it should only be enabled
+        // for the pattern, maybe for the guard of the CaseDef, but not for the body.
         computeChildEffects(tree, ctx.copy(patternMode = true))
 
       case Apply(TypeTree(), args) =>

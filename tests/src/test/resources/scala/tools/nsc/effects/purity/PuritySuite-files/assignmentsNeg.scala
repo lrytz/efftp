@@ -58,4 +58,13 @@ class C {
     }
     g()
   }
+  
+  
+  def f11: Int @pure = {
+    var x = 0
+    def foo: Unit @loc(any) = "slfj" match {
+      case s if {x = 1; true} => {x = 3}
+    }
+    10
+  }
 }

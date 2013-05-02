@@ -12,4 +12,15 @@ class C {
 
   def f7(a: C): C @loc(a, this) = if (true) a else this
 
+
+  // pattern matching. localities of pattern-bound variables are not yet correctly computed, some
+  // tests are therefore in localitiesPending
+  
+  def f8(a: Any): C @loc(any) = a match {
+    case c: C => c
+    case _ => this
+  }
+  
+  
+
 }

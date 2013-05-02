@@ -47,4 +47,16 @@ class C {
     u + 1
   }
 
+  
+  def f11: Int @pure = {
+    var x = 1
+    def g(): Int @assign(x, any) = {
+      {x = 2; "hum"} match {
+        case s =>
+          x = 3
+          4
+      }
+    }
+    g()
+  }
 }

@@ -6,5 +6,6 @@ target/
 /sandbox/
 
 *.iws
+/.cache
 
 .DS_Store

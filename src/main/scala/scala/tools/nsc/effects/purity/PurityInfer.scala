@@ -17,8 +17,11 @@ trait PurityInfer extends Infer { this: PurityDomain =>
         val assignEff = Assigns((sym, rhsLoc))
         (rhsMod, rhsAssign join assignEff, AnyLoc)
 
-      case Ident(_) if !sym.isMethod =>
-        if (sym.isValueParameter || sym.isLocal)
+      case Ident(name) if !sym.isMethod =>
+        if (sym == NoSymbol) {
+          assert(ctx.patternMode && name == nme.WILDCARD)
+          lattice.noModAnyResLoc
+        } else if (sym.isValueParameter || sym.isLocal)
           (RefSet(), Assigns(), RefSet(SymRef(sym)))
         else
           lattice.noModAnyResLoc
@@ -104,18 +107,12 @@ trait PurityInfer extends Infer { this: PurityDomain =>
        * Note that at this point, Ident and Select trees can only be (parameterless) method calls, the other
        * case is treated in cases above
        */
-      case _: Apply | _: TypeApply | _: Ident | _: Select =>
-        val exp = ctx.expected map {
-          case (exMod, exAssign, _) => (exMod, exAssign, AnyLoc)
-        }
-        super.computeEffectImpl(tree, ctx.copy(expected = exp))
+      case _: Apply | _: TypeApply | _: Ident | _: Select | _: UnApply =>
+        super.computeEffectImpl(tree, contextWithAnyLocExpected(ctx))
 
 
       case If(cond, thenp, elsep) =>
-        val anyLocExp = ctx.expected map {
-          case (exMod, exAssign, _) => (exMod, exAssign, AnyLoc)
-        }
-        val (condMod, condAssign, _) = computeEffect(cond, ctx.copy(expected = anyLocExp))
+        val (condMod, condAssign, _) = computeEffect(cond, contextWithAnyLocExpected(ctx))
         val (thenMod, thenAssign, thenLoc) = computeEffect(thenp, ctx)
         val (elseMod, elseAssign, elseLoc) = computeEffect(elsep, ctx)
         (
@@ -124,11 +121,44 @@ trait PurityInfer extends Infer { this: PurityDomain =>
           thenLoc join elseLoc)
 
       case Match(sel, cases) =>
-        ??? // @todo
+        val (selMod, selAssign, _) = computeEffect(sel, contextWithAnyLocExpected(ctx))
+        val (casesMods, casesAssigns, casesLocs) = cases.map(computeEffect(_, ctx)).unzip3
+        (
+          joinAllLocalities(casesMods, selMod),
+          joinAllAssignEffs(casesAssigns, selAssign),
+          joinAllLocalities(casesLocs))
+
+      case CaseDef(pat, guard, rhs) =>
+        val anyLocCtx = contextWithAnyLocExpected(ctx)
+        val (pagMod, patAssign, _) = computeEffect(pat, anyLocCtx.copy(patternMode = true))
+        val (guardMod, guardAssign, _) = computeEffect(guard, anyLocCtx)
+        val (rhsMod, rhsAssign, rhsLoc) = computeEffect(rhs, ctx)
+        (
+          joinAllLocalities(List(pagMod, guardMod), rhsMod),
+          joinAllAssignEffs(List(patAssign, guardAssign), rhsAssign),
+          rhsLoc)
+
+
+      case Try(block, catches, finalizer) =>
+        val (blockMod, blockAssign, blockLoc) = computeEffect(block, ctx)
+        val (catchesMods, catchesAssigns, catchesLocs) = catches.map(computeEffect(_, ctx)).unzip3
+        val (finalizerMod, finalizerAssign, _) = computeEffect(finalizer, contextWithAnyLocExpected(ctx))
+        (
+          joinAllLocalities(blockMod :: catchesMods, finalizerMod),
+          joinAllAssignEffs(blockAssign :: catchesAssigns, finalizerAssign),
+          joinAllLocalities(catchesLocs, blockLoc))
+
 
       case _ =>
         super.computeEffectImpl(tree, ctx)
     }
+  }
+
+  def contextWithAnyLocExpected(ctx: EffectContext) = {
+    val exp = ctx.expected map {
+      case (exMod, exAssign, _) => (exMod, exAssign, AnyLoc)
+    }
+    ctx.copy(expected = exp)
   }
 
   /**
