@@ -18,6 +18,8 @@ class C {
   trait E
   trait D {
     val x: E
+    @local val y: E
+    @local val z: D
   }
 
   def f9a(d: D): E @loc() = d.x
@@ -27,4 +29,14 @@ class C {
     val d1 = d
     d1
   }
+
+  def f11(d1: D, d2: D): D @loc() = {
+    var dr = d1
+    dr = d2
+    dr
+  }
+
+  def f12(d: D): E @loc() = d.y
+  def f13(d: D): Any @loc() = if (true) d else d.y
+  def f14(d: D): E @loc() = if (true) d.y else if (false) d.z.y else d.z.z.y
 }

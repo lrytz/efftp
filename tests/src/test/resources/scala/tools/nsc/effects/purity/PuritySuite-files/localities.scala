@@ -21,18 +21,56 @@ class C {
     case _ => this
   }
   
-  
-  // non-local field selection
-  
   trait E
   trait D {
     val x: E
+    @local val y: E
+    @local val z: D
   }
 
+  
+  // non-local field selection
+  
   def f9(d: D): E @loc(any) = d.x
   def f10(d: D): D @loc(d) = {
     val d1 = d
     d1
   }
+  def f11(d1: D, d2: D): D @loc(d1, d2) = {
+    var dr = d1
+    dr = d2
+    dr
+  }
+  
+
+  // local fields
+  
+  def f12(d: D): E @loc(d) = d.y
+  def f13(d: D): Any @loc(d) = if (true) d else d.y
+  def f14(d: D): E @loc(d) = if (true) d.y else if (false) d.z.y else d.z.z.y
   
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
