@@ -27,6 +27,22 @@ class C {
     val fun = () => d.y
     fun()
   }
- }
 
+  def f3(d: D): E @loc() = {
+    val fun: (() => E) { def apply(): E @loc() } = () => d.y
+    fun()
+  }
+  
+
+  def f4(d: D): E @loc() = {
+    var da = d.z
+    val fun: (() => E) { def apply(): E @loc() } = () => {
+      da = da.z
+      da = d.z.z
+    }
+    fun()
+    da.y
+  }
+
+}
 

@@ -88,7 +88,7 @@ trait PurityInfer extends Infer { this: PurityDomain =>
 
           case Assigns(as) =>
             val (localAssigns, otherAssigns) = as.partition(p => locals.contains(p._1))
-            val substMap: Map[VarRef, Locality] = localAssigns.map(p => (SymRef(p._1), p._2))
+            val substMap: Map[VarRef, Locality] = localAssigns.map(p => (SymRef(p._1), elimSym(p._1, p._2)))
             substitute(substMap, (allMod, Assigns(otherAssigns), exprLoc))
         }
 
@@ -160,6 +160,18 @@ trait PurityInfer extends Infer { this: PurityDomain =>
     }
     ctx.copy(expected = exp)
   }
+
+  /**
+   * Eliminate `SymRef(sym)` references from the locality `loc`.
+   */
+  def elimSym(sym: Symbol, loc: Locality) = loc match {
+    case AnyLoc => AnyLoc
+    case RefSet(refs) => RefSet(refs.filter {
+      case SymRef(s) if s == sym => false
+      case _ => true
+    })
+  }
+
 
   /**
    * For method invocations need to

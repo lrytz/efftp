@@ -91,6 +91,9 @@ trait TypeUtils { self: EffectChecker =>
         val newDecls = newScope
         newDecls.enter(cloned)
         copyRefinedType(refType, parents, newDecls)
+        
+      case ErrorType =>
+        funTp
 
       case t =>
         abort("Function tree with unexpecte type " + t)
