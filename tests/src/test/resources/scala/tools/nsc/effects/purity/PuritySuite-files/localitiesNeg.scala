@@ -39,4 +39,5 @@ class C {
   def f12(d: D): E @loc() = d.y
   def f13(d: D): Any @loc() = if (true) d else d.y
   def f14(d: D): E @loc() = if (true) d.y else if (false) d.z.y else d.z.z.y
+  def f15(d: D): E @loc() = if(true) d.z.x else d.z.z.y
 }

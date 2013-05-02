@@ -85,13 +85,15 @@ trait AnfTransform { self: EffectDomain =>
     def transformToAnf(tree: Tree, typer: Typer, pt: Type): Tree = {
       val anfTree = mkBlock(transformToList(tree))
       val res = typer.typed(anfTree, pt)
-      val strBefore = tree.toString
 
-      val strAfter  = res.toString
-      if (strBefore.length == strAfter.length) res
-      else EffectChecker.printRes(res, s"anf of $strBefore --- ")
-
-//      typer.typed(anfTree, pt)
+      if (EffectChecker.traceAnf) {
+        val strBefore = tree.toString
+        val strAfter  = res.toString
+        if (strBefore.length == strAfter.length) res
+        else EffectChecker.printRes(res, s"anf of $strBefore --- ")
+      } else {
+        res
+      }
     }
 
 

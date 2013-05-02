@@ -25,7 +25,7 @@ class EffectsPlugin(val global: Global) extends Plugin {
   }
 
   val domain: EffectDomain { val global: EffectsPlugin.this.global.type } = {
-    settings.domains match {
+    efftpSettings.domains match {
       case List("io") =>
         new io.IODomain {
           val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
@@ -57,7 +57,7 @@ class EffectsPlugin(val global: Global) extends Plugin {
 
 
 
-  object settings {
+  object efftpSettings {
     var domains: List[String] = Nil
     val domainsStr = "domains:"
 

@@ -33,6 +33,8 @@ abstract class EffectChecker extends PluginComponent with Transform with TypeChe
 }
 
 object EffectChecker {
+  lazy val traceAnf = sys.props.isDefinedAt("efftp.traceAnf")
+
   // debugging stuff
   def printRes[T](res: T, msg: String = ""): T = {
     print(msg)

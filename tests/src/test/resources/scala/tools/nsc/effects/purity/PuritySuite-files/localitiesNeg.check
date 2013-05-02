@@ -98,3 +98,13 @@ newSource:41: error: effect type mismatch;
  required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
   def f14(d: D): E @loc() = if (true) d.y else if (false) d.z.y else d.z.z.y
                                                                            ^
+newSource:42: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),AnyLoc)
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+  def f15(d: D): E @loc() = if(true) d.z.x else d.z.z.y
+                                         ^
+newSource:42: error: effect type mismatch;
+ found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
+ required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+  def f15(d: D): E @loc() = if(true) d.z.x else d.z.z.y
+                                                      ^
