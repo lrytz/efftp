@@ -11,9 +11,9 @@ abstract class PurityDomain extends EffectDomain with ConvertAnnots with PurityI
   }
   import lattice._
 
-  override def accessorEffect(sym: Symbol): Effect = {
+  override def accessorEffect(sym: Symbol, tpe: Type, tree: Tree): Effect = {
     if (sym.isGetter) getterEffect(sym)
-    else setterEffect(sym)
+    else setterEffect(sym, tpe)
   }
 
   def getterEffect(sym: Symbol): Effect = {
@@ -31,7 +31,7 @@ abstract class PurityDomain extends EffectDomain with ConvertAnnots with PurityI
     }
   }
 
-  def setterEffect(sym: Symbol): Effect = {
+  def setterEffect(sym: Symbol, tpe: Type): Effect = {
     val owner = sym.owner
     if (owner.isModuleClass) {
       lattice.top
@@ -41,7 +41,8 @@ abstract class PurityDomain extends EffectDomain with ConvertAnnots with PurityI
       // used to be   (atPhase(currentRun.typerPhase)(getter.hasAnnotation(localClass)))
       val getter = sym.getter(sym.owner)
       if (getter.hasAnnotation(localClass)) {
-        val List(List(arg)) = sym.paramss
+        // luckily we have the type tpe here - calling sym.info would lead to a cyclic reference
+        val List(List(arg)) = tpe.paramss
         (RefSet(Set(ref, SymRef(arg))), Assigns(), AnyLoc)
       } else {
         (RefSet(ref), Assigns(), AnyLoc)

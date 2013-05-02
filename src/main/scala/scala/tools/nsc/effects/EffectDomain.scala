@@ -78,7 +78,7 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects wi
    * The effect that is assigned to getters and setters. This method can be overridden
    * by effect domains to assign a different effect to accessors.
    */
-  def accessorEffect(sym: Symbol): Effect = bottom
+  def accessorEffect(sym: Symbol, tpe: Type, tree: Tree): Effect = bottom
 }
 
 trait EffectLattice {

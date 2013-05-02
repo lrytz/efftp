@@ -30,8 +30,8 @@ abstract class BiEffectDomain extends EffectDomain {
     d1.toAnnotation(eff._1) ++ d2.toAnnotation(eff._2)
   }
 
-  override def accessorEffect(sym: Symbol): Effect =
-    (d1.accessorEffect(sym), d2.accessorEffect(sym))
+  override def accessorEffect(sym: Symbol, tpe: Type, tree: Tree): Effect =
+    (d1.accessorEffect(sym, tpe, tree), d2.accessorEffect(sym, tpe, tree))
 
 
   // TODO: avoid re-creating new domain contexts on every invocation of `computeEffect` !!

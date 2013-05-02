@@ -587,7 +587,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
      * Set the effect of field accessors
      */
     override def pluginsTypeSigAccessor(tpe: Type, typer: Typer, tree: ValDef, sym: Symbol): Type = {
-      val e = accessorEffect(sym)
+      val e = accessorEffect(sym, tpe, tree)
       // For the setter type, remove the effect annotation from the argument type. The reason is that the
       // ValDef's type has an effect annotation (to make constructor effect inference work), which ends
       // up in the parameter type here.
