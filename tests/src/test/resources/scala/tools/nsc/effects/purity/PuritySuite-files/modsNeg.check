@@ -13,3 +13,8 @@ newSource:24: error: effect type mismatch;
  required: (RefSet(Set()),Assigns(Map()),AnyLoc)
     d.eLoc = e
            ^
+newSource:29: error: effect type mismatch;
+ found   : (RefSet(Set(SymRef(value d), SymRef(value x$1$1))),Assigns(Map()),AnyLoc)
+ required: (RefSet(Set(SymRef(variable ei), SymRef(value x$1$1))),Assigns(Map(variable ei -> AnyLoc, value x$1$1 -> AnyLoc)),AnyLoc)
+    d.eLoc = ei
+           ^

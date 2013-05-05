@@ -82,13 +82,35 @@ trait PurityInfer extends Infer { this: PurityDomain =>
         val allMod = joinAllLocalities(statsMods, exprMod)
         val allAssign = joinAllAssignEffs(statsAssigns, exprAssign)
 
+        
+        // eliminate assignment effects to local variables, substitute their locality in the resulting effect
         allAssign match {
           case AssignAny =>
+            // the block has unknown assignment effects, in this case we don't know the overall effect of the
+            // block because we don't know how variables might be aliased
             (AnyLoc, AssignAny, AnyLoc)
 
           case Assigns(as) =>
+            // the block has some assignment effects. for assignments to local variables allocated in this block,
+            // the assignment effect expresses the locality that the variable might point to. example
+            //   var x = a
+            //   x = b
+            // has effect x->(a,b). in the resulting effect we need to eliminate all references to the local
+            // variables that get out of scope, we replace them by their locality.
+            //
+            // however, the locality of a local variable might include other local variables allocated in the block:
+            //   var x = a   // assignment effect x->(a)
+            //   var y = x   // assignment effect y->(x)
+            //   y.modify()  // mod effect y
+            // here we have assignment effect y->(x), but in the modification effect we should replace (y) by (a),
+            // not by (x). so we compute `substMap`, a substitution map from local variables to localities which
+            // don't refer to any locals of this block. in the example, substMap would be x->(a),y->(a).
             val (localAssigns, otherAssigns) = as.partition(p => locals.contains(p._1))
-            val substMap: Map[VarRef, Locality] = localAssigns.map(p => (SymRef(p._1), elimSym(p._1, p._2)))
+            val elimSelf: Map[VarRef, Locality] = localAssigns.map(p => (SymRef(p._1), elimSym(p._1, p._2)))
+            val substMap = (elimSelf /: elimSelf) {
+              case (substMap, (ref, locality)) =>
+                substMap.map(p => (p._1, substitute(Map(ref -> locality), p._2)))
+            }
             substitute(substMap, (allMod, Assigns(otherAssigns), exprLoc))
         }
 
@@ -164,7 +186,7 @@ trait PurityInfer extends Infer { this: PurityDomain =>
   /**
    * Eliminate `SymRef(sym)` references from the locality `loc`.
    */
-  def elimSym(sym: Symbol, loc: Locality) = loc match {
+  def elimSym(sym: Symbol, loc: Locality): Locality = loc match {
     case AnyLoc => AnyLoc
     case RefSet(refs) => RefSet(refs.filter {
       case SymRef(s) if s == sym => false
