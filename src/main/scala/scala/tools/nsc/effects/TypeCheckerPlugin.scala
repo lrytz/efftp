@@ -265,26 +265,27 @@ trait TypeCheckerPlugin { self: EffectChecker =>
 
       val relEnv = relEffects(constrSym)
 
-      val rhsE = domain.computeEffect(anfConstrBody, effectContext(expected, relEnv, defTyper, superContextMsg))
+      val rhsEff = domain.computeEffect(anfConstrBody, effectContext(expected, relEnv, defTyper, superContextMsg))
 
       val fields = templ.body collect {
         // lazy vals don't contribute to the constructor effect
         case vd: ValDef if !(vd.symbol.isParamAccessor || vd.symbol.isEarlyInitialized || vd.symbol.isLazy) => vd
       }
-      val includeFieldsEff = (rhsE /: fields)((e, vd) => {
-        lazy val fieldTyper = analyzer.newTyper(templTyper.context.makeNewScope(vd, vd.symbol))
+      val fieldEffs = fields.map({ vd =>
+        val fieldSym = vd.symbol
+        lazy val fieldTyper = analyzer.newTyper(templTyper.context.makeNewScope(vd, fieldSym))
         val typedFieldRhs =
           if (alreadyTyped) vd.rhs
           else {
-            typeCheckRhs(vd.rhs, fieldTyper, vd.symbol.tpe)
+            typeCheckRhs(vd.rhs, fieldTyper, fieldSym.tpe)
           }
-        val anfFieldRhs = maybeAnf(typedFieldRhs, fieldTyper, vd.symbol.tpe)
-        val fieldEff = domain.computeEffect(anfFieldRhs, effectContext(expected, relEnv, templTyper, fieldContextMsg))
-        e u fieldEff
-      })
+        val anfFieldRhs = maybeAnf(typedFieldRhs, fieldTyper, fieldSym.tpe)
+        val eff = domain.computeEffect(anfFieldRhs, effectContext(expected, relEnv, templTyper, fieldContextMsg))
+        (fieldSym, eff)
+      }).toMap
 
       val statements = templ.body.filterNot(_.isDef)
-      val anfStats =
+      val anfStats = {
         if (alreadyTyped) statements
         else {
           val statsOwner = templ.symbol orElse constrSym.owner.newLocalDummy(templ.pos)
@@ -295,12 +296,12 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             maybeAnf(typedStat, localTyper, WildcardType)
           })
         }
+      }
+      val statEffs = anfStats map { stat =>
+        domain.computeEffect(stat, effectContext(expected, relEnv, templTyper, statementContextMsg))
+      }
 
-      val includeStatsEff = (includeFieldsEff /: anfStats)((e, stat) =>
-        e u domain.computeEffect(stat, effectContext(expected, relEnv, templTyper, statementContextMsg))
-      )
-
-      val totalEff = (includeStatsEff /: typedParents.tail)((e, parent) => {
+      val traitInitEffs = typedParents.tail.map({ parent =>
         // fromAnnotation(parent.tpe.typeSymbol.primaryConstructor.info)
         val traitInit = parent.tpe.typeSymbol.primaryConstructor
         val eff =
@@ -310,9 +311,19 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             val traitInitApply = atPos(parent.pos)(Apply(gen.mkAttributedRef(traitInit), Nil))
             domain.computeEffect(defTyper.typed(traitInitApply), effectContext(expected, relEnv, defTyper, parentContextMsg))
           }
-        e u eff
-      })
-      (totalEff, relEnv)
+        (traitInit, eff)
+      }).toMap
+
+      (combinePrimaryConstrEffect(constrSym, rhsEff, fieldEffs, statEffs, traitInitEffs), relEnv)
+    }
+    
+    def combinePrimaryConstrEffect(
+        constr: Symbol,
+        rhsEff: Effect,
+        fieldEffs: Map[Symbol, Effect],
+        statEffs: List[Effect],
+        traitParentConstrEffs: Map[Symbol, Effect]): Effect = {
+      (rhsEff /: (fieldEffs.values ++ statEffs ++ traitParentConstrEffs.values))(_ u _)
     }
 
     /**

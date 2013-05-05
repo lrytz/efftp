@@ -232,7 +232,6 @@ trait Infer { self: EffectDomain =>
           latent(funSym, paramLocs.zip(unaryArgs.map(pa => argTpeAndLoc(pa._2))).toMap ++ thisLocMapping, byNameEffs, ctx)
         }
       }
-  //    funEff u (byValEffs :\ bottom)(_ u _) u lat
       combineApplyEffect(funSym, funEff, byValEffs, repeatedEffs, lat)
     }
   }

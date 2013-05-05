@@ -29,7 +29,5 @@ class C {
     d.eLoc = ei
     ei = e2
   }
-  
-  
 
 }
