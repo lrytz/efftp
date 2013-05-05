@@ -1,135 +1,135 @@
 newSource:4: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
+ found   : @mod() @loc(any)
+ required: @mod() @loc(this)
   def f1: Int @loc(this) = 1
                            ^
 newSource:6: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
+ found   : @mod() @loc(any)
+ required: @mod() @loc(this)
   def f3: String @loc(this) = f2
                               ^
 newSource:7: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(any)
+ required: @mod() @loc()
   def f4: String @loc() = f2
                           ^
 newSource:9: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(this)
+ required: @mod() @loc()
   def f5: C @loc() = this
                      ^
 newSource:11: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value a))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
+ found   : @mod() @loc(a)
+ required: @mod() @loc(this)
   def f6a(a: C): C @loc(this) = a
                                 ^
 newSource:12: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value a))))
+ found   : @mod() @loc(this)
+ required: @mod() @loc(a)
   def f6b(a: C): C @loc(a) = this
                              ^
 newSource:14: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value a))))
+ found   : @mod() @loc(this)
+ required: @mod() @loc(a)
   def f7a(a: C): C @loc(a) = if (true) a else this
                                               ^
 newSource:15: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value a))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
+ found   : @mod() @loc(a)
+ required: @mod() @loc(this)
   def f7b(a: C): C @loc(this) = if (true) a else this
                                           ^
 newSource:16: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value a))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(a)
+ required: @mod() @loc()
   def f7c(a: C): C @loc() = if (true) a else this
                                       ^
 newSource:16: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(this)
+ required: @mod() @loc()
   def f7c(a: C): C @loc() = if (true) a else this
                                              ^
 newSource:25: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(any)
+ required: @mod() @loc()
   def f9a(d: D): E @loc() = d.x
                               ^
 newSource:26: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
+ found   : @mod() @loc(any)
+ required: @mod() @loc(d)
   def f9b(d: D): E @loc(d) = d.x
                                ^
 newSource:30: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(d)
+ required: @mod() @loc()
     d1
     ^
 newSource:36: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d1), SymRef(value d2))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(d1,d2)
+ required: @mod() @loc()
     dr
     ^
 newSource:39: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(d)
+ required: @mod() @loc()
   def f12(d: D): E @loc() = d.y
                               ^
 newSource:40: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(d)
+ required: @mod() @loc()
   def f13(d: D): Any @loc() = if (true) d else d.y
                                         ^
 newSource:40: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(d)
+ required: @mod() @loc()
   def f13(d: D): Any @loc() = if (true) d else d.y
                                                  ^
 newSource:41: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(d)
+ required: @mod() @loc()
   def f14a(d: D): E @loc() = if (true) d.y else if (false) d.z.y else d.z.z.y
                                          ^
 newSource:41: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(d)
+ required: @mod() @loc()
   def f14a(d: D): E @loc() = if (true) d.y else if (false) d.z.y else d.z.z.y
                                                                ^
 newSource:41: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(d)
+ required: @mod() @loc()
   def f14a(d: D): E @loc() = if (true) d.y else if (false) d.z.y else d.z.z.y
                                                                             ^
 newSource:42: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(any)
+ required: @mod() @loc()
   def f14b(d: D): E @loc() = if (true) d.z.x else d.z.z.y
                                            ^
 newSource:42: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(d)
+ required: @mod() @loc()
   def f14b(d: D): E @loc() = if (true) d.z.x else d.z.z.y
                                                         ^
 newSource:47: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value da))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(da)
+ required: @mod() @loc()
       if (true) da.y else d.y
                    ^
 newSource:47: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(d)
+ required: @mod() @loc()
       if (true) da.y else d.y
                             ^
 newSource:54: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(d)
+ required: @mod() @loc()
     foo()
        ^
 newSource:60: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(this)
+ required: @mod() @loc()
   def f17a: E @loc() = obj
                        ^
 newSource:61: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
+ found   : @mod() @loc(any)
+ required: @mod() @loc(this)
   def f17b: E @loc(this) = obj
                            ^

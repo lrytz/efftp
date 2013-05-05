@@ -1,20 +1,20 @@
 newSource:16: error: effect type mismatch;
- found   : (RefSet(Set(SymRef(value d))),Assigns(Map()),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+ found   : @mod(d) @loc(any)
+ required: @mod() @loc(any)
     d.i = 1
         ^
 newSource:20: error: effect type mismatch;
- found   : (RefSet(Set(SymRef(value d))),Assigns(Map()),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+ found   : @mod(d) @loc(any)
+ required: @mod() @loc(any)
     d.eGlob = e
             ^
 newSource:24: error: effect type mismatch;
- found   : (RefSet(Set(SymRef(value d), SymRef(value e))),Assigns(Map()),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+ found   : @mod(d,e) @loc(any)
+ required: @mod() @loc(any)
     d.eLoc = e
            ^
 newSource:29: error: effect type mismatch;
- found   : (RefSet(Set(SymRef(value d), SymRef(value x$1$1))),Assigns(Map()),AnyLoc)
- required: (RefSet(Set(SymRef(variable ei), SymRef(value x$1$1))),Assigns(Map(variable ei -> AnyLoc, value x$1$1 -> AnyLoc)),AnyLoc)
+ found   : @mod(d,x$1$1) @loc(any)
+ required: @mod(ei,x$1$1) @assign(ei,any) @assign(x$1$1,any) @loc(any)
     d.eLoc = ei
            ^

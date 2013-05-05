@@ -1,60 +1,60 @@
 newSource:4: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(ThisRef(class C))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(this)
+ required: @mod() @loc()
   def f1: C @loc() = this
                      ^
 newSource:5: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(any)
+ required: @mod() @loc()
   def f2: Int @loc() = 1
                        ^
 newSource:6: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(any)
+ required: @mod() @loc()
   def f3: String @loc() = "hai"
                           ^
 newSource:11: error: effect type mismatch;
- found   : (AnyLoc,AssignAny,AnyLoc)
- required: (RefSet(Set(SymRef(variable x))),Assigns(Map(variable x -> AnyLoc)),AnyLoc)
+ found   : @mod(any) @assign(any) @loc(any)
+ required: @mod(x) @assign(x,any) @loc(any)
     inc()                     // with no effect annotation - so in this case, `inc` gets the top effect
        ^
 newSource:19: error: effect type mismatch;
- found   : (RefSet(Set()),AssignAny,AnyLoc)
- required: (RefSet(Set(SymRef(variable x))),Assigns(Map(variable x -> AnyLoc)),AnyLoc)
+ found   : @mod() @assign(any) @loc(any)
+ required: @mod(x) @assign(x,any) @loc(any)
     inc()
        ^
 newSource:27: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map(variable x -> AnyLoc)),AnyLoc)
- required: (RefSet(Set()),Assigns(Map(variable x -> RefSet(Set()))),AnyLoc)
+ found   : @mod() @assign(x,any) @loc(any)
+ required: @mod() @assign(x,) @loc(any)
     def inc(): Unit @assign(x) = { x = x + 1 }
                                      ^
 newSource:37: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map(variable y -> AnyLoc)),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+ found   : @mod() @assign(y,any) @loc(any)
+ required: @mod() @loc(any)
       h
       ^
 newSource:49: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map(variable y -> AnyLoc)),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+ found   : @mod() @assign(y,any) @loc(any)
+ required: @mod() @loc(any)
         y = 4
           ^
 newSource:54: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map(variable y -> AnyLoc)),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+ found   : @mod() @assign(y,any) @loc(any)
+ required: @mod() @loc(any)
       h1()
         ^
 newSource:56: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map(variable y -> AnyLoc)),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+ found   : @mod() @assign(y,any) @loc(any)
+ required: @mod() @loc(any)
       h3
       ^
 newSource:66: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map(variable x -> AnyLoc)),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+ found   : @mod() @assign(x,any) @loc(any)
+ required: @mod() @loc(any)
       case s if {x = 1; true} => {x = 3}
                    ^
 newSource:66: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map(variable x -> AnyLoc)),AnyLoc)
- required: (RefSet(Set()),Assigns(Map()),AnyLoc)
+ found   : @mod() @assign(x,any) @loc(any)
+ required: @mod() @loc(any)
       case s if {x = 1; true} => {x = 3}
                                     ^

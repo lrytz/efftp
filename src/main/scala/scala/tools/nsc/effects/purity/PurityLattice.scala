@@ -10,26 +10,52 @@ trait PurityLattice extends EffectLattice {
   type Mod = Locality
   type ResLoc = Locality
 
-  type Effect = (Mod, AssignEff, ResLoc)
+  type Effect = PurityEffect
 
-  lazy val top: Effect            = (AnyLoc, AssignAny, AnyLoc)
-  lazy val bottom: Effect         = (RefSet(), Assigns(), RefSet())
-  lazy val noModAnyResLoc: Effect = (RefSet(), Assigns(), AnyLoc)
+  lazy val top: Effect            = PurityEffect(AnyLoc, AssignAny, AnyLoc)
+  lazy val bottom: Effect         = PurityEffect(RefSet(), Assigns(), RefSet())
+  lazy val noModAnyResLoc: Effect = PurityEffect(RefSet(), Assigns(), AnyLoc)
 
   override def effectForPureAnnotated: Effect = noModAnyResLoc
 
 
   def join(a: Effect, b: Effect): Effect =
-    (a._1 join b._1, a._2 join b._2, a._3 join b._3)
+    PurityEffect(a.mod join b.mod, a.assign join b.assign, a.loc join b.loc)
 
   def meet(a: Effect, b: Effect): Effect =
-    (a._1 meet b._1, a._2 meet b._2, a._3 meet b._3)
+    PurityEffect(a.mod meet b.mod, a.assign meet b.assign, a.loc meet b.loc)
 
   def lte(a: Effect, b: Effect): Boolean =
-    (a._1 lte b._1) && (a._2 lte b._2) && (a._3 lte b._3)
+    (a.mod lte b.mod) && (a.assign lte b.assign) && (a.loc lte b.loc)
 
 
+  case class PurityEffect(mod: Mod, assign: AssignEff, loc: ResLoc) {
+    def toTriple = (mod, assign, loc)
+    override def toString() =
+      (modToString(mod) ::: assignToString(assign) ::: resLocToString(loc)).mkString(" ")
 
+    def modToString(mod: Mod) = List(s"@mod(${locToString(mod)})")
+
+    def assignToString(assign: AssignEff) = assign match {
+      case AssignAny => List("@assign(any)")
+      case Assigns(as) =>
+        as.map(p => s"@assign(${p._1.name.toString()},${locToString(p._2)})").toList
+    }
+
+    def resLocToString(loc: ResLoc) = List(s"@loc(${locToString(loc)})")
+
+    def locToString(loc: Locality) = loc match {
+      case AnyLoc => "any"
+      case RefSet(refs) => refsToString(refs)
+    }
+    
+    def refsToString(refs: Set[VarRef]) = {
+      refs map {
+        case ThisRef(_) => "this"
+        case SymRef(sym) => sym.name.toString()
+      } mkString(",")
+    }
+  }
 
 
   sealed trait VarRef

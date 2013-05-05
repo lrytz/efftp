@@ -1,5 +1,5 @@
 newSource:5: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value c))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value a))))
+ found   : @mod() @loc(c)
+ required: @mod() @loc(a)
     case c: C => c
                  ^

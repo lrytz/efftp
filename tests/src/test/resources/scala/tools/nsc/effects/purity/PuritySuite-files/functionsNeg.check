@@ -1,16 +1,16 @@
 newSource:17: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set(SymRef(value anon))),Assigns(Map(value anon -> AnyLoc)),RefSet(Set(SymRef(value anon))))
+ found   : @mod() @loc(d)
+ required: @mod(anon) @assign(anon,any) @loc(anon)
     anon.appliquer()
                   ^
 newSource:21: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(d)
+ required: @mod() @loc()
       def appliquer(): E @loc() = d.y
                                     ^
 newSource:28: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set(SymRef(value fun))),Assigns(Map(value fun -> AnyLoc)),RefSet(Set(SymRef(value fun))))
+ found   : @mod() @loc(d)
+ required: @mod(fun) @assign(fun,any) @loc(fun)
     fun()
        ^
 newSource:32: error: type mismatch;
@@ -24,7 +24,7 @@ newSource:39: error: type mismatch;
     val fun: (() => E) { def apply(): E @loc() } = () => {
                                                       ^
 newSource:44: error: effect type mismatch;
- found   : (RefSet(Set()),Assigns(Map()),RefSet(Set(SymRef(value d))))
- required: (RefSet(Set()),Assigns(Map()),RefSet(Set()))
+ found   : @mod() @loc(d)
+ required: @mod() @loc()
     da.y
        ^

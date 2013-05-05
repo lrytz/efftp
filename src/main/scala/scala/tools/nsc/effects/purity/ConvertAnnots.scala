@@ -32,7 +32,7 @@ trait ConvertAnnots { this: PurityDomain =>
      *  - "@mod()" (no modifications), if there's no annotation in the "store" domain
      *  - "@loc(any)" if there's no locality annotation */
     if (modEff.isEmpty && assignEff.isEmpty && resLoc.isEmpty) default
-    else (
+    else PurityEffect(
       modEff.getOrElse(RefSet()),
       assignEff.getOrElse(Assigns()),
       resLoc.getOrElse(AnyLoc))
@@ -134,7 +134,7 @@ trait ConvertAnnots { this: PurityDomain =>
    * TODO: should avoid unnecessary annotations, eg @assign() when there's something else
    */
   def toAnnotation(eff: Effect): List[AnnotationInfo] = {
-    val res = modAnnotation(eff._1) :: assignAnnotations(eff._2) ::: locAnnnotations(eff._3)
+    val res = modAnnotation(eff.mod) :: assignAnnotations(eff.assign) ::: locAnnnotations(eff.loc)
     if (res.isEmpty)
       List(AnnotationInfo(modClass.tpe, Nil, Nil))
     else

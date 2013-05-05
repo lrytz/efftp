@@ -11,50 +11,50 @@ trait PurityInfer extends Infer { this: PurityDomain =>
 
       // @TODO: no more needed?
       case ValDef(_, _, _, rhs) /*if sym.isVariable*/ =>
-        val (rhsMod, rhsAssign, rhsLoc) = computeEffect(rhs, ctx)
+        val PurityEffect(rhsMod, rhsAssign, rhsLoc) = computeEffect(rhs, ctx)
         // use an @assing effect for the initial assignment, also for non-variables. when
         // the variable gets out of scope the assign effect will be taken into account.
         val assignEff = Assigns((sym, rhsLoc))
-        (rhsMod, rhsAssign join assignEff, AnyLoc)
+        PurityEffect(rhsMod, rhsAssign join assignEff, AnyLoc)
 
       case Ident(name) if !sym.isMethod =>
         if (sym == NoSymbol) {
           assert(ctx.patternMode && name == nme.WILDCARD)
           lattice.noModAnyResLoc
         } else if (sym.isValueParameter || sym.isLocal)
-          (RefSet(), Assigns(), RefSet(SymRef(sym)))
+          PurityEffect(RefSet(), Assigns(), RefSet(SymRef(sym)))
         else
           lattice.noModAnyResLoc
 
       case This(name) =>
-        (RefSet(), Assigns(), RefSet(ThisRef(sym)))
+        PurityEffect(RefSet(), Assigns(), RefSet(ThisRef(sym)))
 
 
       // assignments to fields - note that variable fields are usually modified using the setter
       case Assign(sel @ Select(qual, _), rhs) =>
         val fieldSym = sel.symbol
         assert(fieldSym.isVariable && !fieldSym.isLocal, s"expected variable field, found $fieldSym")
-        val (qualMod, qualAssign, qualLoc) = computeEffect(qual, ctx)
-        val (rhsMod, rhsAssign, rhsLoc) = computeEffect(rhs, ctx)
+        val PurityEffect(qualMod, qualAssign, qualLoc) = computeEffect(qual, ctx)
+        val PurityEffect(rhsMod, rhsAssign, rhsLoc) = computeEffect(rhs, ctx)
         val assignMod = if (isLocalField(fieldSym)) qualLoc join rhsLoc
                         else qualLoc
         // result locality AnyLoc: assignments evaluate to the unit value ()
-        (qualMod join rhsMod join assignMod, qualAssign join rhsAssign, AnyLoc)
+        PurityEffect(qualMod join rhsMod join assignMod, qualAssign join rhsAssign, AnyLoc)
 
 
       case Assign(id @ Ident(name), rhs) =>
         val varSym = id.symbol
         assert(varSym.isVariable && varSym.isLocal, s"expected local variable, found $sym")
-        val (rhsEff, rhsAssign, rhsLoc) = computeEffect(rhs, ctx)
+        val PurityEffect(rhsEff, rhsAssign, rhsLoc) = computeEffect(rhs, ctx)
         val assignEff = Assigns((varSym, rhsLoc))
-        (rhsEff, rhsAssign join assignEff, AnyLoc)
+        PurityEffect(rhsEff, rhsAssign join assignEff, AnyLoc)
 
 
       // direct field access - note that most field accesses go through getters
       case Select(qual, name) if !sym.isMethod =>
-        val (qualMod, qualAssign, qualLoc) = computeEffect(qual, ctx)
+        val PurityEffect(qualMod, qualAssign, qualLoc) = computeEffect(qual, ctx)
         val resloc = if (isLocalField(sym)) qualLoc else AnyLoc
-        (qualMod, qualAssign, resloc)
+        PurityEffect(qualMod, qualAssign, resloc)
 
 
       case Block(stats, expr) =>
@@ -68,16 +68,16 @@ trait PurityInfer extends Infer { this: PurityDomain =>
           case None =>
             (None, None)
 
-          case Some((mod, assign, loc)) =>
+          case Some(PurityEffect(mod, assign, loc)) =>
             val localsLocality = RefSet(locals.map(SymRef).toSet[VarRef])
             val exMod = mod join localsLocality
             val exAssign = assign join Assigns(locals.map(sym => (sym, AnyLoc)).toMap)
             val exLoc = loc join localsLocality
-            (Some((exMod, exAssign, AnyLoc)), Some((exMod, exAssign, exLoc)))
+            (Some(PurityEffect(exMod, exAssign, AnyLoc)), Some(PurityEffect(exMod, exAssign, exLoc)))
         }
 
-        val (statsMods, statsAssigns, _) = stats.map(computeEffect(_, ctx.copy(expected = statsExpected))).unzip3
-        val (exprMod, exprAssign, exprLoc) = computeEffect(expr, ctx.copy(expected = exprExpected))
+        val (statsMods, statsAssigns, _) = stats.map(computeEffect(_, ctx.copy(expected = statsExpected)).toTriple).unzip3
+        val PurityEffect(exprMod, exprAssign, exprLoc) = computeEffect(expr, ctx.copy(expected = exprExpected))
 
         val allMod = joinAllLocalities(statsMods, exprMod)
         val allAssign = joinAllAssignEffs(statsAssigns, exprAssign)
@@ -88,7 +88,7 @@ trait PurityInfer extends Infer { this: PurityDomain =>
           case AssignAny =>
             // the block has unknown assignment effects, in this case we don't know the overall effect of the
             // block because we don't know how variables might be aliased
-            (AnyLoc, AssignAny, AnyLoc)
+            PurityEffect(AnyLoc, AssignAny, AnyLoc)
 
           case Assigns(as) =>
             // the block has some assignment effects. for assignments to local variables allocated in this block,
@@ -111,7 +111,7 @@ trait PurityInfer extends Infer { this: PurityDomain =>
               case (substMap, (ref, locality)) =>
                 substMap.map(p => (p._1, substitute(Map(ref -> locality), p._2)))
             }
-            substitute(substMap, (allMod, Assigns(otherAssigns), exprLoc))
+            substitute(substMap, PurityEffect(allMod, Assigns(otherAssigns), exprLoc))
         }
 
       case New(tpt) =>
@@ -134,38 +134,38 @@ trait PurityInfer extends Infer { this: PurityDomain =>
 
 
       case If(cond, thenp, elsep) =>
-        val (condMod, condAssign, _) = computeEffect(cond, contextWithAnyLocExpected(ctx))
-        val (thenMod, thenAssign, thenLoc) = computeEffect(thenp, ctx)
-        val (elseMod, elseAssign, elseLoc) = computeEffect(elsep, ctx)
-        (
+        val PurityEffect(condMod, condAssign, _) = computeEffect(cond, contextWithAnyLocExpected(ctx))
+        val PurityEffect(thenMod, thenAssign, thenLoc) = computeEffect(thenp, ctx)
+        val PurityEffect(elseMod, elseAssign, elseLoc) = computeEffect(elsep, ctx)
+        PurityEffect(
           condMod join thenMod join elseMod,
           condAssign join thenAssign join elseAssign,
           thenLoc join elseLoc)
 
       case Match(sel, cases) =>
-        val (selMod, selAssign, _) = computeEffect(sel, contextWithAnyLocExpected(ctx))
-        val (casesMods, casesAssigns, casesLocs) = cases.map(computeEffect(_, ctx)).unzip3
-        (
+        val PurityEffect(selMod, selAssign, _) = computeEffect(sel, contextWithAnyLocExpected(ctx))
+        val (casesMods, casesAssigns, casesLocs) = cases.map(computeEffect(_, ctx).toTriple).unzip3
+        PurityEffect(
           joinAllLocalities(casesMods, selMod),
           joinAllAssignEffs(casesAssigns, selAssign),
           joinAllLocalities(casesLocs))
 
       case CaseDef(pat, guard, rhs) =>
         val anyLocCtx = contextWithAnyLocExpected(ctx)
-        val (pagMod, patAssign, _) = computeEffect(pat, anyLocCtx.copy(patternMode = true))
-        val (guardMod, guardAssign, _) = computeEffect(guard, anyLocCtx)
-        val (rhsMod, rhsAssign, rhsLoc) = computeEffect(rhs, ctx)
-        (
+        val PurityEffect(pagMod, patAssign, _) = computeEffect(pat, anyLocCtx.copy(patternMode = true))
+        val PurityEffect(guardMod, guardAssign, _) = computeEffect(guard, anyLocCtx)
+        val PurityEffect(rhsMod, rhsAssign, rhsLoc) = computeEffect(rhs, ctx)
+        PurityEffect(
           joinAllLocalities(List(pagMod, guardMod), rhsMod),
           joinAllAssignEffs(List(patAssign, guardAssign), rhsAssign),
           rhsLoc)
 
 
       case Try(block, catches, finalizer) =>
-        val (blockMod, blockAssign, blockLoc) = computeEffect(block, ctx)
-        val (catchesMods, catchesAssigns, catchesLocs) = catches.map(computeEffect(_, ctx)).unzip3
-        val (finalizerMod, finalizerAssign, _) = computeEffect(finalizer, contextWithAnyLocExpected(ctx))
-        (
+        val PurityEffect(blockMod, blockAssign, blockLoc) = computeEffect(block, ctx)
+        val (catchesMods, catchesAssigns, catchesLocs) = catches.map(computeEffect(_, ctx).toTriple).unzip3
+        val PurityEffect(finalizerMod, finalizerAssign, _) = computeEffect(finalizer, contextWithAnyLocExpected(ctx))
+        PurityEffect(
           joinAllLocalities(blockMod :: catchesMods, finalizerMod),
           joinAllAssignEffs(blockAssign :: catchesAssigns, finalizerAssign),
           joinAllLocalities(catchesLocs, blockLoc))
@@ -178,7 +178,7 @@ trait PurityInfer extends Infer { this: PurityDomain =>
 
   def contextWithAnyLocExpected(ctx: EffectContext) = {
     val exp = ctx.expected map {
-      case (exMod, exAssign, _) => (exMod, exAssign, AnyLoc)
+      case PurityEffect(exMod, exAssign, _) => PurityEffect(exMod, exAssign, AnyLoc)
     }
     ctx.copy(expected = exp)
   }
@@ -207,25 +207,25 @@ trait PurityInfer extends Infer { this: PurityDomain =>
   override def combineApplyEffect(fun: Symbol, funEff: Effect, byValEffs: Map[Symbol, Effect],
                                   repeatedEffs: Map[Symbol, List[Effect]], latent: Effect): Effect = {
 
-    val (resMod, resAssign, _) = super.combineApplyEffect(fun, funEff, byValEffs, repeatedEffs, latent)
+    val PurityEffect(resMod, resAssign, _) = super.combineApplyEffect(fun, funEff, byValEffs, repeatedEffs, latent)
     val argLocs: Map[VarRef, Locality] = byValEffs map {
-      case (sym, eff) => (SymRef(sym), eff._3)
+      case (sym, eff) => (SymRef(sym), eff.loc)
     }
     val substMap = {
       if (fun.isLocal) argLocs // for local functions, `this` is not substituted
-      else argLocs + ((ThisRef(fun.owner), funEff._3))
+      else argLocs + ((ThisRef(fun.owner), funEff.loc))
     }
 
-    val (_, _, resLoc) = fromAnnotation(fun.info)
+    val PurityEffect(_, _, resLoc) = fromAnnotation(fun.info)
 
-    substitute(substMap, (resMod, resAssign, resLoc))
+    substitute(substMap, PurityEffect(resMod, resAssign, resLoc))
   }
 
   def isLocalField(sym: Symbol) =
     sym.hasAnnotation(localClass)
 
   def substitute(map: Map[VarRef, Locality], e: Effect): Effect =
-    (substitute(map, e._1), substitute(map, e._2), substitute(map, e._3))
+    PurityEffect(substitute(map, e.mod), substitute(map, e.assign), substitute(map, e.loc))
 
   def substitute(map: Map[VarRef, Locality], loc: Locality): Locality = loc match {
     case AnyLoc =>

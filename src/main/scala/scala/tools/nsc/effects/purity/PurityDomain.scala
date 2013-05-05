@@ -25,7 +25,7 @@ abstract class PurityDomain extends EffectDomain with ConvertAnnots with PurityI
     // for abstract fields, there is no field symbol. so we check the annotation on the getter.
     // used to be   (atPhase(currentRun.typerPhase)(sym.hasAnnotation(localClass)))
     if (sym.hasAnnotation(localClass)) {
-      (RefSet(), Assigns(), RefSet(ref))
+      PurityEffect(RefSet(), Assigns(), RefSet(ref))
     } else {
       lattice.noModAnyResLoc
     }
@@ -43,9 +43,9 @@ abstract class PurityDomain extends EffectDomain with ConvertAnnots with PurityI
       if (getter.hasAnnotation(localClass)) {
         // luckily we have the type tpe here - calling sym.info would lead to a cyclic reference
         val List(List(arg)) = tpe.paramss
-        (RefSet(Set(ref, SymRef(arg))), Assigns(), AnyLoc)
+        PurityEffect(RefSet(Set(ref, SymRef(arg))), Assigns(), AnyLoc)
       } else {
-        (RefSet(ref), Assigns(), AnyLoc)
+        PurityEffect(RefSet(ref), Assigns(), AnyLoc)
       }
     }
   }
