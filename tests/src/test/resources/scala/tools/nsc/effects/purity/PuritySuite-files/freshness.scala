@@ -92,6 +92,7 @@ class C {
   }
   def f13a(): A13 @loc() = new A13
   def f13b(): A13 @loc() = new A13(new K)
+  def f13c(k: K): A13 @mod(k) @loc() = new A13(k)
 
   class A13Trait {
     @local var c = new D {}
@@ -102,5 +103,6 @@ class C {
   }
   def f13Ta(): A13Trait @loc() = new A13Trait
   def f13Tb(): A13Trait @loc() = new A13Trait(new D {})
+  def f13Tc(d: D): A13Trait @mod(d) @loc() = new A13Trait(d)
 
 }
