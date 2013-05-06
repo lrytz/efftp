@@ -63,4 +63,16 @@ class C {
     }
   }
   
+  
+  
+  @loc()
+  class A10(a: Int) {
+    var b = a
+    @mod(this) def this(x: Int, y: Int) {
+      this(0)
+      b = x + y
+    }
+  }
+  
+  
 }

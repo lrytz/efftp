@@ -19,6 +19,7 @@
 - disallow @mod(x) / @loc(x) where x is a repeated parameter
 
 
+- when type checking a block, the expected assign effect includes local values (non-variables). they could be excluded
 
 
 # Notes

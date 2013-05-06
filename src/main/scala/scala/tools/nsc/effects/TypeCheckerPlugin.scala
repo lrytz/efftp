@@ -184,7 +184,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
     }
 
     /**
-     * tree is either Template (primary) or DefDef (auxiliary)
+     * 
      */
     def constrEffTypeDefAnnots(constrDef: DefDef, tmpl: Option[Template], typer: Typer, alreadyTyped: Boolean): List[AnnotationInfo] = {
 
@@ -242,9 +242,9 @@ trait TypeCheckerPlugin { self: EffectChecker =>
      * the field initializers and the statements in `tpl`.
      *
      * @param constrBody   The body of the primary constructor, can be typed or not
-     * @param defTyper     The typer for the constructor body, only used if it is not yet typed
+     * @param defTyper     The typer for the constructor body
      * @param templ        The template, can be typed or not
-     * @param templTyper   Typer for the template, only used if it is not yet typed
+     * @param templTyper   Typer for the template
      * @param typedParents The typed parent trees of the template
      * @param alreadyTyped A flag indicating if `body` and `templ` are already typed or not
      * @param expected     The expected effect. If defined, computeEffect will report errors on effect mismatches.
@@ -692,14 +692,16 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             treeInfo.firstConstructor(templ.body) match {
               case constrDef: DefDef =>
                 val constrSym = constrDef.symbol
-                val typeDefAnnots = constrEffTypeDefAnnots(constrDef, Some(templ), typer, alreadyTyped = true)
+                val (_, templTyper) = templates(constrSym.owner)
+                val constrDefTyper = analyzer.newTyper(templTyper.context.makeNewScope(constrDef, constrSym))
+                val typeDefAnnots = constrEffTypeDefAnnots(constrDef, Some(templ), templTyper, alreadyTyped = true)
                 for (annotEff <- annotatedConstrEffect(constrSym, typeDefAnnots)) {
                   // as expected effect we use the one on the return type of the constructor, not the one on the
                   // constructor symbol or the typeDef
                   val expected = Some(domain.adaptExpectedMethodEffect(constrSym, fromAnnotation(constrSym.tpe)))
                   // the typers we pass as typer for `rhs` / `templ` don't have the correct context, but that doesn't
                   // matter. the trees are already typed, `typer` won't be used.
-                  inferPrimaryConstrEff(constrSym, constrDef.rhs, typer, templ, typer,
+                  inferPrimaryConstrEff(constrSym, constrDef.rhs, constrDefTyper, templ, templTyper,
                                         templ.parents, alreadyTyped = true, expected = expected)
                 }
 

@@ -16,6 +16,18 @@
   the owner chain of the existing symbols can be invalidated.
 
 
+- anf transform introduces local variable for setter argument (at least if the argument is a variable)
+
+		{
+		  var ei: C.this.E = e1;
+		  val x$1$1: C.this.E = ei;
+		  d.eLoc_=(x$1$1);
+		  ei = e2
+		}
+
+
+
+
 ## Use the correct typer
 
 - "pluginsTyped" case DefDef    => typer is for outside the method, need to create inner one  ==> fixed
