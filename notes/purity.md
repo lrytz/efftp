@@ -1,5 +1,15 @@
 # To Do
 
+
+
+- crash on this, rel(x) refers to the field
+  class C(x: => Int) {
+     @rel(x) type constructorEffect
+     def foo(): Int @rel(x) = x
+     lazy val v: Int @rel(x) = x
+   }
+
+
 - substitute variables that get out of scope in the result type
   => also need to do it in result type, but this is not possible in computeEffect, there
      we can't modify the types.. need another hook
@@ -12,7 +22,8 @@
 
 
 
-- Pattern Matching: assign correct localities to pattern bound variables
+- Pattern Matching: assign correct localities to pattern bound variables, make sure they are eliminated
+  when they get out of scope
 
 
 

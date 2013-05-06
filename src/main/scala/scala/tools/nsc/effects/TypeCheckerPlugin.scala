@@ -287,7 +287,10 @@ trait TypeCheckerPlugin { self: EffectChecker =>
         (fieldSym, eff)
       }).toMap
 
-      val statements = templ.body.filterNot(_.isDef)
+      val statements = templ.body filter {
+        case Import(_, _) => false // @TODO imports handling
+        case s => !s.isDef
+      }
       val anfStats = {
         if (alreadyTyped) statements
         else {

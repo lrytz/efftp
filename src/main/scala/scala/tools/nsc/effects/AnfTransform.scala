@@ -163,14 +163,16 @@ trait AnfTransform { self: EffectDomain =>
       case List(expr) => expr
       case stats :+ expr => Block(stats, expr).setPos(expr.pos)
     }
-
+    
     def transformToList(tree: Tree): List[Tree] = tree match {
 
       case Select(qual, name) =>
         val stats :+ expr = transformToList(qual)
-        stats :+ Select(expr, name).setPos(tree.pos)
+        if (expr eq qual) List(tree)
+        else stats :+ Select(expr, name).setPos(tree.pos)
 
       case treeInfo.Applied(fun, targs, argss) if argss.nonEmpty =>
+        // TODO: conserve Apply if everything is in ANF
         val funStats :+ simpleFun = transformToList(fun)
         val (argStatss, argExprss): (List[List[List[Tree]]], List[List[Tree]]) =
           mapArgumentss[List[Tree]](fun, argss) {
@@ -196,53 +198,81 @@ trait AnfTransform { self: EffectDomain =>
 
       case ValDef(mods, name, tpt, rhs) if !mods.isLazy =>
         val stats :+ expr = transformToList(rhs)
-        // calling `setSymbol` is important because (at least for now) we don't reset and re-type all
-        // of the already typed trees. so the already typed trees can refer to the symbol that was initially
-        // created for that ValDef. if we just insert an empty one here the typer will create a new symbol
-        // for it and things get out of sync. For ValDefs that already have a symbol the typer just uses that
-        // instead of creating a new one.
-        val anfVd = ValDef(mods, name, tpt, expr).setSymbol(tree.symbol)
-        stats :+ anfVd.setPos(tree.pos)
+        if (expr eq rhs) {
+          List(tree)
+        } else {
+          // calling `setSymbol` is important because (at least for now) we don't reset and re-type all
+          // of the already typed trees. so the already typed trees can refer to the symbol that was initially
+          // created for that ValDef. if we just insert an empty one here the typer will create a new symbol
+          // for it and things get out of sync. For ValDefs that already have a symbol the typer just uses that
+          // instead of creating a new one.
+          val anfVd = ValDef(mods, name, tpt, expr).setSymbol(tree.symbol)
+          stats :+ anfVd.setPos(tree.pos)
+        }
 
       case Assign(lhs, rhs) =>
         val stats :+ expr = transformToList(rhs)
-        stats :+ Assign(lhs, expr).setPos(tree.pos)
+        if (expr eq rhs) List(tree)
+        else stats :+ Assign(lhs, expr).setPos(tree.pos)
 
       case If(cond, thenp, elsep) =>
         val condStats :+ condExpr = transformToList(cond)
-        val thenBlock = mkBlock(transformToList(thenp))
-        val elseBlock = mkBlock(transformToList(elsep))
-        condStats :+ If(condExpr, thenBlock, elseBlock).setPos(tree.pos)
+
+        val thenStats :+ thenExpr = transformToList(thenp)
+        val elseStats :+ elseExpr = transformToList(elsep)
+        if ((condExpr eq cond) && (thenExpr eq thenp) && (elseExpr eq elsep)) List(tree)
+        else {
+          val thenBlock = mkBlock(thenStats :+ thenExpr)
+          val elseBlock = mkBlock(elseStats :+ elseExpr)
+          condStats :+ If(condExpr, thenBlock, elseBlock).setPos(tree.pos)
+        }
+
 
       case Match(scrut, cases) =>
         val scrutStats :+ scrutExpr = transformToList(scrut)
         val caseDefs = transformCases(cases)
-        scrutStats :+ Match(scrutExpr, caseDefs).setPos(tree.pos)
+        if ((scrutExpr eq scrut) && caseDefs.zip(cases).forall(p => p._1 eq p._2)) List(tree)
+        else {
+          scrutStats :+ Match(scrutExpr, caseDefs).setPos(tree.pos)
+        }
 
 
       case LabelDef(name, params, rhs) =>
-        List(LabelDef(name, params, mkBlock(transformToList(rhs))).setSymbol(tree.symbol))
+        val rhsStats :+ rhsExpr = transformToList(rhs)
+        if (rhsExpr eq rhs) List(tree)
+        else List(LabelDef(name, params, mkBlock(rhsStats :+ rhsExpr)).setSymbol(tree.symbol))
 
       case TypeApply(fun, targs) =>
         val funStats :+ simpleFun = transformToList(fun)
-        funStats :+ TypeApply(simpleFun, targs).setPos(tree.pos)
+        if (simpleFun eq fun) List(tree)
+        else funStats :+ TypeApply(simpleFun, targs).setPos(tree.pos)
 
       case Try(block, catches, finalizer) =>
-        val tryBlock = mkBlock(transformToList(block))
-        val finalizerBlock = mkBlock(transformToList(finalizer))
-        List(Try(tryBlock, transformCases(catches), finalizerBlock).setPos(tree.pos))
+        val tryStats :+ tryExpr = transformToList(block)
+        val caseDefs = transformCases(catches)
+        val finStats :+ finExpr = transformToList(finalizer)
+        if ((tryExpr eq block) && caseDefs.zip(catches).forall(p => p._1 eq p._2) && (finExpr eq finalizer)) {
+          List(tree)
+        } else {
+          val tryBlock = mkBlock(tryStats :+ tryExpr)
+          val finalizerBlock = mkBlock(finStats :+ finExpr)
+          List(Try(tryBlock, caseDefs, finalizerBlock).setPos(tree.pos))
+        }
 
       case Throw(expr) =>
         val throwStats :+ throwExpr = transformToList(expr)
-        throwStats :+ Throw(throwExpr).setPos(tree.pos)
+        if (throwExpr eq expr) List(tree)
+        else throwStats :+ Throw(throwExpr).setPos(tree.pos)
 
       case Typed(expr, tpt) =>
         val tpdStats :+ tpdExpr = transformToList(expr)
-        tpdStats :+ Typed(tpdExpr, tpt).setPos(tree.pos)
+        if (tpdExpr eq expr) List(tree)
+        else tpdStats :+ Typed(tpdExpr, tpt).setPos(tree.pos)
 
       case Return(expr) =>
         val retStats :+ retExpr = transformToList(expr)
-        retStats :+ Return(retExpr).setPos(tree.pos)
+        if (retExpr eq expr) List(tree)
+        else retStats :+ Return(retExpr).setPos(tree.pos)
 
       case _ =>
         List(tree)
@@ -250,9 +280,15 @@ trait AnfTransform { self: EffectDomain =>
 
     def transformCases(cases: List[CaseDef]): List[CaseDef] = cases map {
       case cd @ CaseDef(pat, guard, body) =>
-        val guardBlock = mkBlock(transformToList(guard))
-        val bodyBlock = mkBlock(transformToList(body))
-        CaseDef(pat, guardBlock, bodyBlock).setPos(cd.pos)
+        val guardStats :+ guardExpr = transformToList(guard)
+        val bodyStats :+ bodyExpr = transformToList(body)
+        if ((guardExpr eq guard) && (bodyExpr eq body)) {
+          cd
+        } else {
+          val guardBlock = mkBlock(guardStats :+ guardExpr)
+          val bodyBlock = mkBlock(bodyStats :+ bodyExpr)
+          CaseDef(pat, guardBlock, bodyBlock).setPos(cd.pos)
+        }
     }
   }
 }

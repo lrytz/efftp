@@ -1,8 +1,15 @@
+# problems with collections
+
+- imports within block cause crashes
+
+- synthetic method canEqual uses internal $isInstanceOf which cannot be erased and re-typed.
+
+
+
+
 # next up
 
-- @pure could mean @throws[RuntimeException]
-
-- state effects
+- allow enabling multiple domains
 
 - collections example
 
@@ -16,18 +23,6 @@
     }
   - stub files
 
-
-- imports within block cause crashes
-
-- crash on this, rel(x) refers to the field
-  class C(x: => Int) {
-     @rel(x) type constructorEffect
-     def foo(): Int @rel(x) = x
-     lazy val v: Int @rel(x) = x
-   }
-
-- support for multiple domains, how to assemble them? have a separate jar for each domain?
-    - compiler flags to enable / disable
 
 
 ## Features
