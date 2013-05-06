@@ -1,0 +1,32 @@
+newSource:7: error: effect type mismatch;
+ found   : @mod() @loc(any)
+ required: @mod() @loc()
+    new A1
+    ^
+newSource:18: error: effect type mismatch;
+ found   : @mod() @loc(any)
+ required: @mod() @loc()
+    new A2()
+    ^
+newSource:30: error: effect type mismatch;
+ found   : @mod(this) @loc(any)
+ required: @mod() @loc(any)
+      x = y
+        ^
+newSource:37: error: effect type mismatch;
+ found   : @mod() @loc(any)
+ required: @mod() @loc()
+  def f4: A4 @loc() = new A4
+                      ^
+newSource:43: error: effect type mismatch;
+ found   : @mod(this) @loc(any)
+ required: @mod() @loc(any)
+The effect of the primary constructor does not match the annotated effect.
+The mismatch is due to a statement in the class body.
+    x = 1
+      ^
+newSource:57: error: effect type mismatch;
+ found   : @mod(this) @loc(any)
+ required: @mod() @loc(any)
+      this.x = x
+             ^
