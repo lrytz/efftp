@@ -1,38 +1,38 @@
 newSource:10: error: effect type mismatch;
- found   : List(E1)
- required: List(Nothing)
+ found   : @throws[E1]
+ required: @throws[Nothing]
   def t1: Int @throws[Nothing] = f(1)
                                   ^
 newSource:11: error: effect type mismatch;
- found   : List(E1)
- required: List(Nothing)
+ found   : @throws[E1]
+ required: @throws[Nothing]
   def t2: Int @throws = f(1)
                          ^
 newSource:12: error: effect type mismatch;
- found   : List(E1)
- required: List(Nothing)
+ found   : @throws[E1]
+ required: @throws[Nothing]
   def t3: Int @pure = f(1)
                        ^
 newSource:17: error: effect type mismatch;
- found   : List(E2)
- required: List(E1)
+ found   : @throws[E2]
+ required: @throws[E1]
     throw new E2
     ^
 newSource:24: error: effect type mismatch;
- found   : List(E2)
- required: List(Nothing)
+ found   : @throws[E2]
+ required: @throws[Nothing]
   def t5: Int @pure = try {
                       ^
 newSource:34: warning: This catches all Throwables. If this is really intended, use `case _ : Throwable` to clear this warning.
     case _ => 1
          ^
 newSource:38: error: effect type mismatch;
- found   : List(E2)
- required: List(Nothing)
+ found   : @throws[E2]
+ required: @throws[Nothing]
   def t7: Int @pure = try {
                       ^
 newSource:44: error: effect type mismatch;
- found   : List(E1)
- required: List(Nothing)
+ found   : @throws[E1]
+ required: @throws[Nothing]
   def t8: Int @pure = try {
                       ^

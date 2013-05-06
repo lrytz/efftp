@@ -30,25 +30,25 @@ abstract class ExceptionsDomain extends EffectDomain {
     if (throwsAnns.isEmpty) {
       default
     } else {
-      ((Nil: Effect) /: throwsAnns)((eff, annot) => {
+      ((Throws()) /: throwsAnns)((eff, annot) => {
         val TypeRef(_, _, List(arg)) = annot.atp
         val tps = {
           // @throws without type arguments is translated to @throws[E] where E is a typeRef to an abstract type symbol
           if (arg.typeSymbol.isAbstractType) List(nothingType)
           else exceptionsOf(arg)
         }
-        join(eff, tps)
+        join(eff, Throws(tps))
       })
     }
   }
 
   def toAnnotation(eff: Effect): List[AnnotationInfo] = {
-    def toType(eff: Effect): Type = eff match {
+    def toType(eff: List[Type]): Type = eff match {
       case Nil => nothingType
       case x :: Nil => x
       case x :: xs => typeRef(barTrait.tpe.prefix, barTrait, List(x, toType(xs)))
     }
-    List(AnnotationInfo(typeRef(throwsClass.tpe.prefix, throwsClass, List(toType(eff))), Nil, Nil))
+    List(AnnotationInfo(typeRef(throwsClass.tpe.prefix, throwsClass, List(toType(eff.tps))), Nil, Nil))
   }
 
   /**
@@ -56,32 +56,32 @@ abstract class ExceptionsDomain extends EffectDomain {
    *   - the list of types caught by the pattern of `caseDef`
    *   - a boolean indicating if the pattern has been analyzed precisely or not
    */
-  def typesMatchingPattern(pattern: Tree): (List[Type], Boolean) = pattern match {
+  def typesMatchingPattern(pattern: Tree): (Throws, Boolean) = pattern match {
     /*** catch one specific exception ***/
 
     case Bind(_, Typed(Ident(nme.WILDCARD), tpt)) =>
-      (List(tpt.tpe), true)
+      (Throws(tpt.tpe), true)
     case Typed(Ident(nme.WILDCARD), tpt) =>
-      (List(tpt.tpe), true)
+      (Throws(tpt.tpe), true)
 
 
     /*** catch any exception (i.e. Throwable) ***/
 
     case Ident(nme.WILDCARD) | Bind(_, Ident(nme.WILDCARD)) =>
-      (List(throwableType), true)
+      (Throws(throwableType), true)
 
 
     /*** alternatives ***/
 
     case Alternative(trees) =>
-      ((List[Type](),true) /: trees)((res, tree) => {
+      ((Throws(),true) /: trees)((res, tree) => {
         val (mask, isPrecise) = res
         val (treeMask, treeIsPrecise) = typesMatchingPattern(tree)
         (mask u treeMask, isPrecise && treeIsPrecise)
       })
 
     case _ =>
-      (Nil, false)
+      (Throws(), false)
   }
 
   /**
@@ -90,7 +90,7 @@ abstract class ExceptionsDomain extends EffectDomain {
    *   - a boolean indicating wether the case analysis was precise
    *   - the effect of the righthand-side statements of the cases
    */
-  def typesMatchingCases(cases: List[CaseDef], ctx: EffectContext): (List[Type], Boolean, Effect) = {
+  def typesMatchingCases(cases: List[CaseDef], ctx: EffectContext): (Throws, Boolean, Throws) = {
     ((bottom, true, bottom) /: cases)((res, cdef) => {
       val (mask, isPrecise, catchEff) = res
       val resCatchEff = catchEff u super.computeEffect(cdef.body, ctx)
@@ -106,7 +106,7 @@ abstract class ExceptionsDomain extends EffectDomain {
   override def computeEffectImpl(tree: Tree, ctx: EffectContext): Effect = tree match {
     case Throw(expr) =>
       val exprEff = super.computeEffect(expr, ctx)
-      exprEff u List(expr.tpe)
+      exprEff u Throws(expr.tpe)
 
     case Try(body, catches, finalizer) =>
       val (mask, maskIsPrecise, catchEff) = typesMatchingCases(catches, ctx)
@@ -137,23 +137,33 @@ abstract class ExceptionsLattice extends EffectLattice {
   lazy val throwableType        = definitions.ThrowableClass.tpe
   lazy val nothingType          = definitions.NothingClass.tpe
 
-  type Effect = List[Type]
+  type Effect = Throws
+  
+  case class Throws(tps: List[Type] = Nil) {
+    def this(tp: Type) = this(List(tp))
+    override def toString() = {
+      s"@throws[${tps.mkString("|")}]"
+    }
+  }
+  object Throws {
+    def apply(tp: Type) = new Throws(tp)
+  }
 
 
-  lazy val top: Effect    = List(throwableType)
-  lazy val bottom: Effect = List(nothingType)
+  lazy val top: Effect    = Throws(throwableType)
+  lazy val bottom: Effect = Throws(nothingType)
 
   def lte(a: Effect, b: Effect): Boolean =
-    a.forall(lteOne(_, b))
+    a.tps.forall(lteOne(_, b))
 
   // test for nothingType, that way List(nothingType) conforms to List()
   def lteOne(aTp: Type, b: Effect): Boolean =
-    aTp =:= nothingType || b.exists(bTp => aTp <:< bTp)
+    aTp =:= nothingType || b.tps.exists(bTp => aTp <:< bTp)
 
   def mask(orig: Effect, mask: Effect): Effect =
-    orig.filter(ex =>     // e.g: ex = IOException
-      !mask.exists(m =>   //      m  = Exception
-        ex <:< m))        //      since ex <:< m, remove ex
+    Throws(orig.tps.filter(ex =>     // e.g: ex = IOException
+      !mask.tps.exists(m =>   //      m  = Exception
+        ex <:< m)))           //      since ex <:< m, remove ex
 
   def join(a: Effect, b: Effect): Effect = {
     def elimSub(tps: List[Type]): List[Type] = tps match {
@@ -163,7 +173,7 @@ abstract class ExceptionsLattice extends EffectLattice {
         if (rest.exists(t1 => t <:< t1)) rest
         else t :: rest
     }
-    elimSub(a ++ b)
+    Throws(elimSub(a.tps ++ b.tps))
   }
 
   /**
@@ -173,12 +183,12 @@ abstract class ExceptionsLattice extends EffectLattice {
    *   - the meet(a,b) allows everything which is allowed by both, i.e. E1
    */
   def meet(a: Effect, b: Effect): Effect = {
-    val keepA = a.filter(lteOne(_, b))
-    val keepB = b.filter(lteOne(_, a))
+    val keepA = a.tps.filter(lteOne(_, b))
+    val keepB = b.tps.filter(lteOne(_, a))
     // remove duplicates. if a and b both contain some exception type E1,
     // that E1 will end up in both keepA and keepB
     val aNotB = keepA.filterNot(aTp => keepB.exists(bTp => aTp =:= bTp))
-    aNotB ++ keepB
+    Throws(aNotB ++ keepB)
   }
 
   /**
