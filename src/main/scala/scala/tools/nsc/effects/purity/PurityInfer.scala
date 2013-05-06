@@ -252,13 +252,34 @@ trait PurityInfer extends Infer { this: PurityDomain =>
    * of a primary constructor is inferred, to make sure the constructor returns a fresh object.
    */
   override def adaptInferredPrimaryConstrEffect(
-      constr: Symbol,
+      constrDef: DefDef,
       rhsEff: Effect,
       fieldEffs: Map[Symbol, Effect],
       statEffs: List[Effect],
       traitParentConstrEffs: Map[Symbol, Effect]): Effect = {
-    val combinedEff = super.adaptInferredPrimaryConstrEffect(constr, rhsEff, fieldEffs, statEffs, traitParentConstrEffs)
-    combinedEff.copy(loc = RefSet())
+    val combinedEff = super.adaptInferredPrimaryConstrEffect(constrDef, rhsEff, fieldEffs, statEffs, traitParentConstrEffs)
+    
+    val fieldInitEffs = fieldEffs.toList map {
+      case (fieldSym, eff) =>
+        val mod = {
+          val modThis = RefSet(ThisRef(fieldSym.owner))
+          if (isLocalField(fieldSym)) eff.loc join modThis
+          else modThis
+        }
+        PurityEffect(mod, Assigns(), AnyLoc)
+    }
+    
+    val storeLocalParamsEff = {
+      val params = constrDef.vparamss.flatten.map(_.symbol)
+      if (params.isEmpty) bottom
+      else {
+        val thisRef = ThisRef(constrDef.symbol.owner)
+        val localParamRefs: Set[VarRef] = params.filter(isLocalField).map(p => SymRef(p)).toSet
+        PurityEffect(RefSet(localParamRefs + thisRef), Assigns(), AnyLoc)
+      }
+    }
+    
+    ((combinedEff /: fieldInitEffs)(_ u _) u storeLocalParamsEff).copy(loc = RefSet())
   }
   
   override def adaptInferredMethodEffect(method: Symbol, eff: Effect) = {

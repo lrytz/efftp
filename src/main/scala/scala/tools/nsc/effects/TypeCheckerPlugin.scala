@@ -249,14 +249,17 @@ trait TypeCheckerPlugin { self: EffectChecker =>
      * @param alreadyTyped A flag indicating if `body` and `templ` are already typed or not
      * @param expected     The expected effect. If defined, computeEffect will report errors on effect mismatches.
      */
-    def inferPrimaryConstrEff(constrSym: Symbol, constrBody: Tree, defTyper: Typer, templ: Template, templTyper: Typer,
+    def inferPrimaryConstrEff(constrDef: DefDef, defTyper: Typer, templ: Template, templTyper: Typer,
                               typedParents: List[Tree], alreadyTyped: Boolean, expected: Option[Effect]): (Effect, List[RelEffect]) = {
-      val constrMismatchMsg = "The effect of the primary constructor does not match the annotated effect.\n"
-      val superContextMsg     = Some(constrMismatchMsg + "The mismatch is either due to the super constructor call or an early definition.")
-      val fieldContextMsg     = Some(constrMismatchMsg + "The mismatch is due to a field initialization expression.")
+      val constrSym = constrDef.symbol
+      val constrBody = constrDef.rhs
+      
+      val constrMismatchMsg = "The effect of the primary constructor does not match the annotated effect."
+      val superContextMsg     = Some(constrMismatchMsg + "\nThe mismatch is either due to the super constructor call or an early definition.")
+      val fieldContextMsg     = Some(constrMismatchMsg + "\nThe mismatch is due to a field initialization expression.")
       val ownerKindString     = if (constrSym.owner.isModuleClass) "object" else constrSym.owner.keyString // keyString is 'class' for module classes
-      val statementContextMsg = Some(constrMismatchMsg + s"The mismatch is due to a statement in the ${ownerKindString} body.")
-      val parentContextMsg    = Some(constrMismatchMsg + "The mismatch is due to the initializer of a parent trait.")
+      val statementContextMsg = Some(constrMismatchMsg + s"\nThe mismatch is due to a statement in the ${ownerKindString} body.")
+      val parentContextMsg    = Some(constrMismatchMsg + "\nThe mismatch is due to the initializer of a parent trait.")
 
       val typedConstrBody =
         if (alreadyTyped) constrBody
@@ -314,7 +317,12 @@ trait TypeCheckerPlugin { self: EffectChecker =>
         (traitInit, eff)
       }).toMap
 
-      (domain.adaptInferredPrimaryConstrEffect(constrSym, rhsEff, fieldEffs, statEffs, traitInitEffs), relEnv)
+      val resEff = adaptInferredPrimaryConstrEffect(constrDef, rhsEff, fieldEffs, statEffs, traitInitEffs)
+      // need to check that the effect conforms because `adaptInferredPrimaryConstrEffect` might return a larger effect
+      // than the expected effect used for checking the various statements
+      val ctx = effectContext(expected, relEnv, templTyper, Some(constrMismatchMsg))
+      checkConform(resEff, templ, ctx)
+      (resEff, relEnv)
     }
 
     /**
@@ -433,7 +441,6 @@ trait TypeCheckerPlugin { self: EffectChecker =>
 
         val typedParents = analyzer.newTyper(templateTyper.context.outer).parentTypes(templ)
 
-        val constrBody = ddef.rhs
         /* FOR 2.11, NEED THE FOLLOWING
         val constrBody = ddef.rhs match {
           case Block(earlyVals :+ global.pendingSuperCall, unit) =>
@@ -445,7 +452,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
           case rhs => rhs
         }
         */
-        inferPrimaryConstrEff(constrSym, constrBody, defTyper, templ, templateTyper,
+        inferPrimaryConstrEff(ddef, defTyper, templ, templateTyper,
                               typedParents, alreadyTyped = false, expected = None)
       }
 
@@ -495,7 +502,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
     }
 
     def maybeAnf(tree: Tree, typer: => Typer, pt: => Type) = {
-      if (requireANF) domain.AnfTransformer.transformToAnf(tree, typer, pt)
+      if (requireANF) AnfTransformer.transformToAnf(tree, typer, pt)
       else tree
     }
 
@@ -516,7 +523,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
           val anfRhs = maybeAnf(typedRhs, typer, pt)
 
           val eff = domain.computeEffect(anfRhs, effectContext(None, relEnv, typer))
-          (domain.adaptInferredMethodEffect(sym, eff), relEnv)
+          (adaptInferredMethodEffect(sym, eff), relEnv)
         }
 
         def isCaseApply          = sym.isSynthetic && sym.isCase && sym.name == nme.apply
@@ -679,7 +686,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             expectedEffect foreach (annotEff => {
               lazy val rhsTyper = analyzer.newTyper(typer.context.makeNewScope(ddef, meth))
               val anfRhs = maybeAnf(rhs, rhsTyper, pt)
-              val expected = Some(domain.adaptExpectedMethodEffect(meth, annotEff))
+              val expected = Some(adaptExpectedMethodEffect(meth, annotEff))
               domain.computeEffect(anfRhs, effectContext(expected, relEffects(meth), typer))
             })
 
@@ -698,10 +705,8 @@ trait TypeCheckerPlugin { self: EffectChecker =>
                 for (annotEff <- annotatedConstrEffect(constrSym, typeDefAnnots)) {
                   // as expected effect we use the one on the return type of the constructor, not the one on the
                   // constructor symbol or the typeDef
-                  val expected = Some(domain.adaptExpectedMethodEffect(constrSym, fromAnnotation(constrSym.tpe)))
-                  // the typers we pass as typer for `rhs` / `templ` don't have the correct context, but that doesn't
-                  // matter. the trees are already typed, `typer` won't be used.
-                  inferPrimaryConstrEff(constrSym, constrDef.rhs, constrDefTyper, templ, templTyper,
+                  val expected = Some(adaptExpectedMethodEffect(constrSym, fromAnnotation(constrSym.tpe)))
+                  inferPrimaryConstrEff(constrDef, constrDefTyper, templ, templTyper,
                                         templ.parents, alreadyTyped = true, expected = expected)
                 }
 

@@ -51,7 +51,7 @@ trait PurityLattice extends EffectLattice {
     
     def refsToString(refs: Set[VarRef]) = {
       refs map {
-        case ThisRef(_) => "this"
+        case ThisRef(cls) => s"${cls.name.toString()}.this"
         case SymRef(sym) => sym.name.toString()
       } mkString(",")
     }

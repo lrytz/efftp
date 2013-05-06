@@ -1,11 +1,11 @@
 newSource:4: error: effect type mismatch;
  found   : @mod() @loc(any)
- required: @mod() @loc(this)
+ required: @mod() @loc(C.this)
   def f1: Int @loc(this) = 1
                            ^
 newSource:6: error: effect type mismatch;
  found   : @mod() @loc(any)
- required: @mod() @loc(this)
+ required: @mod() @loc(C.this)
   def f3: String @loc(this) = f2
                               ^
 newSource:7: error: effect type mismatch;
@@ -14,28 +14,28 @@ newSource:7: error: effect type mismatch;
   def f4: String @loc() = f2
                           ^
 newSource:9: error: effect type mismatch;
- found   : @mod() @loc(this)
+ found   : @mod() @loc(C.this)
  required: @mod() @loc()
   def f5: C @loc() = this
                      ^
 newSource:11: error: effect type mismatch;
  found   : @mod() @loc(a)
- required: @mod() @loc(this)
+ required: @mod() @loc(C.this)
   def f6a(a: C): C @loc(this) = a
                                 ^
 newSource:12: error: effect type mismatch;
- found   : @mod() @loc(this)
+ found   : @mod() @loc(C.this)
  required: @mod() @loc(a)
   def f6b(a: C): C @loc(a) = this
                              ^
 newSource:14: error: effect type mismatch;
- found   : @mod() @loc(this)
+ found   : @mod() @loc(C.this)
  required: @mod() @loc(a)
   def f7a(a: C): C @loc(a) = if (true) a else this
                                               ^
 newSource:15: error: effect type mismatch;
  found   : @mod() @loc(a)
- required: @mod() @loc(this)
+ required: @mod() @loc(C.this)
   def f7b(a: C): C @loc(this) = if (true) a else this
                                           ^
 newSource:16: error: effect type mismatch;
@@ -44,7 +44,7 @@ newSource:16: error: effect type mismatch;
   def f7c(a: C): C @loc() = if (true) a else this
                                       ^
 newSource:16: error: effect type mismatch;
- found   : @mod() @loc(this)
+ found   : @mod() @loc(C.this)
  required: @mod() @loc()
   def f7c(a: C): C @loc() = if (true) a else this
                                              ^
@@ -124,12 +124,12 @@ newSource:54: error: effect type mismatch;
     foo()
        ^
 newSource:60: error: effect type mismatch;
- found   : @mod() @loc(this)
+ found   : @mod() @loc(C.this)
  required: @mod() @loc()
   def f17a: E @loc() = obj
                        ^
 newSource:61: error: effect type mismatch;
  found   : @mod() @loc(any)
- required: @mod() @loc(this)
+ required: @mod() @loc(C.this)
   def f17b: E @loc(this) = obj
                            ^

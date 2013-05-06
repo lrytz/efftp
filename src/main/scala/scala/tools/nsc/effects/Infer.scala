@@ -359,7 +359,7 @@ trait Infer { self: EffectDomain =>
    * constructors.
    */
   def adaptInferredPrimaryConstrEffect(
-      constr: Symbol,
+      constrDef: DefDef,
       rhsEff: Effect,
       fieldEffs: Map[Symbol, Effect],
       statEffs: List[Effect],

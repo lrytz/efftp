@@ -1,5 +1,5 @@
 newSource:4: error: effect type mismatch;
- found   : @mod() @loc(this)
+ found   : @mod() @loc(C.this)
  required: @mod() @loc()
   def f1: C @loc() = this
                      ^

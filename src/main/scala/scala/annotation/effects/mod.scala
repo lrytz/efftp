@@ -63,5 +63,5 @@ class assign(localVariable: Any, references: Any*) extends Effect
  * Fields whose content is part of the locality of an object have
  * to be marked with `@local`.
  */
-@scala.annotation.meta.field @scala.annotation.meta.getter
+@scala.annotation.meta.field @scala.annotation.meta.getter @scala.annotation.meta.param
 class local extends scala.annotation.StaticAnnotation // this is not an effect
