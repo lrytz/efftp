@@ -9,4 +9,5 @@ class C {
     def this(x: Int) = this()
   }
   
+  def t14: Object @loc() = new Object()  
 }

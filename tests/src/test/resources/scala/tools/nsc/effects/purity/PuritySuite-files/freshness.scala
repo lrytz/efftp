@@ -104,5 +104,5 @@ class C {
   def f13Ta(): A13Trait @loc() = new A13Trait
   def f13Tb(): A13Trait @loc() = new A13Trait(new D {})
   def f13Tc(d: D): A13Trait @mod(d) @loc() = new A13Trait(d)
-
+  
 }

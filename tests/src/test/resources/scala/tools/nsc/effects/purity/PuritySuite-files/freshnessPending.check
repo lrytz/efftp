@@ -1,0 +1,5 @@
+newSource:12: error: effect type mismatch;
+ found   : @mod() @loc(any)
+ required: @mod() @loc()
+  def t14: Object @loc() = new Object()  
+                           ^
