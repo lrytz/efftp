@@ -62,13 +62,7 @@ class C {
   }
 
   
-  trait E
-  trait D {
-    val x: E
-    @local val y: E
-    @local val z: D
-  }
-
+  trait D
   
   class A12a(@local a: D) {
     @local var d: D = a
@@ -79,4 +73,22 @@ class C {
     @local var d: D = a
   }
 
+
+  class K
+
+  class A13 {
+    @mod() @loc() type constructorEffect
+
+    @local var c = new K
+
+    // this should produce an error, annotates @mod(), actual @mod(this, k) - however it computes
+    // @mod(this) as actual effect.
+    // the reason is that in "PurityDomain.setterEffect", the symbol "c" does not have the "@local"
+    // annotation, for unknown reasons. the problem only appears in the presence of other errors. if
+    // the test is put in a file with no other errors, then everything works correctly.
+    @mod() @loc() def this(k: K) {
+      this()
+      c = k
+    }
+  }
 }

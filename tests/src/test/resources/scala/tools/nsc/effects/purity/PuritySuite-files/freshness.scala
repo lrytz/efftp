@@ -65,13 +65,7 @@ class C {
 
 
   
-  trait E
-  trait D {
-    val x: E
-    @local val y: E
-    @local val z: D
-  }
-
+  trait D
 
   // mod(any) because parameter `a: D` is not annotated `@local`
   @mod(any) @loc()
@@ -85,4 +79,28 @@ class C {
     @local var d: D = a
   }
   def f12(d: D): A12 @mod(d) @loc() = new A12(d)
+
+  
+  class K
+
+  class A13 {
+    @local var c = new K
+    def this(k: K) {
+      this()
+      c = k
+    }
+  }
+  def f13a(): A13 @loc() = new A13
+  def f13b(): A13 @loc() = new A13(new K)
+
+  class A13Trait {
+    @local var c = new D {}
+    def this(k: D) {
+      this()
+      c = k
+    }
+  }
+  def f13Ta(): A13Trait @loc() = new A13Trait
+  def f13Tb(): A13Trait @loc() = new A13Trait(new D {})
+
 }

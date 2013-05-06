@@ -65,14 +65,25 @@ newSource:56: error: effect type mismatch;
 The effect of the primary constructor does not match the annotated effect.
   class A10(a: Int) {
            ^
-newSource:76: error: effect type mismatch;
+newSource:70: error: effect type mismatch;
  found   : @mod(d) @loc()
  required: @mod() @loc()
   def f12(d: D): A12a @mod() @loc() = new A12a(d)
                                       ^
-newSource:77: error: effect type mismatch;
+newSource:71: error: effect type mismatch;
  found   : @mod(A12b.this,a) @loc()
  required: @mod() @loc(any)
 The effect of the primary constructor does not match the annotated effect.
   class A12b(@local a: D) {
+            ^
+newSource:91: error: effect type mismatch;
+ found   : @mod(A13.this) @loc(any)
+ required: @mod() @loc(any)
+      c = k
+        ^
+newSource:79: error: effect type mismatch;
+ found   : @mod(A13.this) @loc()
+ required: @mod() @loc(any)
+The effect of the primary constructor does not match the annotated effect.
+  class A13 {
             ^
