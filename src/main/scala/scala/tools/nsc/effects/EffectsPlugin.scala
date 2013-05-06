@@ -23,26 +23,46 @@ class EffectsPlugin(val global: Global) extends Plugin {
   override def processOptions(options: List[String], error: String => Unit) {
     ()
   }
+  
+  def mkDomains(names: List[String]): List[EffectDomain { val global: EffectsPlugin.this.global.type }] = names match {
+    case "io" :: xs =>
+      new io.IODomain {
+        val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
+      } :: mkDomains(xs)
+      
+    case "exceptions" :: xs =>
+      new exceptions.ExceptionsDomain {
+        val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
+      } :: mkDomains(xs)
 
+    case "purity" :: xs =>
+      new purity.PurityDomain {
+        val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
+      } :: mkDomains(xs)
+      
+    case x :: xs =>
+      global.abort(s"Unknown effect domain: $x")
+      
+    case Nil => Nil
+
+  }
+  
   val domain: EffectDomain { val global: EffectsPlugin.this.global.type } = {
-    efftpSettings.domains match {
-      case List("io") =>
-        new io.IODomain {
-          val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
-        }
-
-      case List("exceptions") =>
-        new exceptions.ExceptionsDomain {
-          val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
-        }
-
-      case List("purity") =>
-        new purity.PurityDomain {
-          val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
-        }
-
-      case ds =>
-        global.abort(s"Unknown domains: $ds")
+    mkDomains(efftpSettings.domains) match {
+      case Nil =>
+        global.abort(s"No effect domain specified")
+        
+      case x :: xs =>
+        x
+//        (x /: xs) {
+//          case (domain1, domain2) => new BiEffectDomain {
+//            val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
+//            val d1: EffectDomain {
+//              val global: EffectsPlugin.this.global.type
+//            } = domain1
+//            val d2 = domain2
+//          }
+//        }
     }
   }
   val effectChecker = new {
