@@ -1,31 +1,31 @@
 newSource:4: error: effect type mismatch;
- found   : true
- required: false
+ found   : @io
+ required: @noIo
   def t1: Unit @pure = (new C).likeBap()
                                       ^
 newSource:8: error: effect type mismatch;
- found   : true
- required: false
+ found   : @io
+ required: @noIo
   def plusTwoE(x: Int): Int @pure = twice(x => { println(); x + 1 }, x)
                                          ^
 newSource:17: error: effect type mismatch;
- found   : true
- required: false
+ found   : @io
+ required: @noIo
   def t2: Any @pure = foo(x => x).bar(10)
                                      ^
 newSource:21: error: effect type mismatch;
- found   : true
- required: false
+ found   : @io
+ required: @noIo
   def t3: Int @pure = new C1(10).foos
                                  ^
 newSource:22: error: effect type mismatch;
- found   : true
- required: false
+ found   : @io
+ required: @noIo
   def t4: Int @pure = new C1(10).y
                                  ^
 newSource:40: error: effect type mismatch;
- found   : true
- required: false
+ found   : @io
+ required: @noIo
 The effect of the primary constructor does not match the annotated effect.
 The mismatch is due to a statement in the class body.
   y // has effect!
@@ -67,7 +67,7 @@ newSource:98: error: not found: value hm
     def tm1: Int @noIo = hm(aPure)
                          ^
 newSource:106: error: effect type mismatch;
- found   : true
- required: false
+ found   : @io
+ required: @noIo
     def buz: Int @noIo = a.foo // not allowed, a.foo might have an effect.
                            ^

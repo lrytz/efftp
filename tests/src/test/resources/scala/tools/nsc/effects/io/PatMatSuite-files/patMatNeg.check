@@ -1,10 +1,10 @@
 newSource:9: error: effect type mismatch;
- found   : true
- required: false
+ found   : @io
+ required: @noIo
     case One(x) if {println(); x == 10} => x
                            ^
 newSource:14: error: effect type mismatch;
- found   : true
- required: false
+ found   : @io
+ required: @noIo
     case Even() => x / 2
              ^

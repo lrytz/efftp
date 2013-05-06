@@ -15,8 +15,8 @@ If this error is reported at a field, the primary constructor needs an effect an
   val x: K = new K()
              ^
 newSource:10: error: effect type mismatch;
- found   : true
- required: false
+ found   : @io
+ required: @noIo
   def mk2: K1 @pure = new K1(1)
                       ^
 newSource:40: error: illegal cyclic reference involving constructor K2

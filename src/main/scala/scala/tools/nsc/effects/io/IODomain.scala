@@ -14,13 +14,13 @@ abstract class IODomain extends EffectDomain {
   lazy val annotationClasses: List[Symbol] = List(ioClass, noIoClass)
 
   def parseAnnotationInfos(annots: List[AnnotationInfo], default: => Effect): Effect =
-    if      (annots.exists(_.atp.typeSymbol == ioClass)) true
-    else if (annots.exists(_.atp.typeSymbol == noIoClass)) false
+    if      (annots.exists(_.atp.typeSymbol == ioClass)) IOEffect(true)
+    else if (annots.exists(_.atp.typeSymbol == noIoClass)) IOEffect(false)
     else default
 
   def toAnnotation(eff: Effect): List[AnnotationInfo] =
-    if (eff) List(AnnotationInfo(ioClass.tpe, Nil, Nil))
-    else     List(AnnotationInfo(noIoClass.tpe, Nil, Nil))
+    if (eff.e) List(AnnotationInfo(ioClass.tpe, Nil, Nil))
+    else       List(AnnotationInfo(noIoClass.tpe, Nil, Nil))
 
   private lazy val printNames = List("println", "print").map(newTermName(_))
   private lazy val PredefMClass = definitions.PredefModule.moduleClass
@@ -32,7 +32,7 @@ abstract class IODomain extends EffectDomain {
 
   override def computeEffectImpl(tree: Tree, ctx: EffectContext): Effect = tree match {
     case Apply(fun, args) if isPrint(fun.symbol) =>
-      true
+      IOEffect(true)
 
     case _ =>
       super.computeEffectImpl(tree, ctx)
@@ -40,13 +40,20 @@ abstract class IODomain extends EffectDomain {
 }
 
 class IOLattice extends EffectLattice {
-  type Effect = Boolean
+  type Effect = IOEffect
+  
+  case class IOEffect(e: Boolean) {
+    override def toString() = {
+      if (e) "@io"
+      else "@noIo"
+    }
+  }
 
-  def top: Effect    = true
-  def bottom: Effect = false
+  def top: Effect    = IOEffect(true)
+  def bottom: Effect = IOEffect(false)
 
-  def join(a: Effect, b: Effect): Effect = a || b
-  def meet(a: Effect, b: Effect): Effect = a && b
+  def join(a: Effect, b: Effect): Effect = IOEffect(a.e || b.e)
+  def meet(a: Effect, b: Effect): Effect = IOEffect(a.e && b.e)
 
-  def lte(a: Effect, b: Effect): Boolean = b || !a
+  def lte(a: Effect, b: Effect): Boolean = b.e || !a.e
 }
