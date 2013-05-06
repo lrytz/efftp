@@ -211,7 +211,8 @@ trait TypeCheckerPlugin { self: EffectChecker =>
               }
               val fieldSyms = paramFields.map(_.symbol)
               val paramSyms = constrDef.vparamss.flatten.map(_.symbol)
-              assert(fieldSyms.length == paramSyms.length && (fieldSyms, paramSyms).zipped.forall((fs, ps) => fs.name == ps.name), s"$fieldSyms --- $paramSyms ")
+              // trim because fields names have a whitespace at the end.
+              assert(fieldSyms.length == paramSyms.length && (fieldSyms, paramSyms).zipped.forall((fs, ps) => fs.name.toString.trim == ps.name.toString.trim), s"$fieldSyms --- $paramSyms ")
 
               val annots = td.symbol.initialize.annotations
               // TODO: for val params, do they refer to the getters instead of the fieldSyms?

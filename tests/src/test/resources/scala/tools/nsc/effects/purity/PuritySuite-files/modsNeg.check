@@ -1,20 +1,24 @@
 newSource:16: error: effect type mismatch;
  found   : @mod(d) @loc(any)
  required: @mod() @loc(any)
+@mod(d) does not conform to @mod()
     d.i = 1
         ^
 newSource:20: error: effect type mismatch;
  found   : @mod(d) @loc(any)
  required: @mod() @loc(any)
+@mod(d) does not conform to @mod()
     d.eGlob = e
             ^
 newSource:24: error: effect type mismatch;
  found   : @mod(d,e) @loc(any)
  required: @mod() @loc(any)
+@mod(d,e) does not conform to @mod()
     d.eLoc = e
            ^
 newSource:29: error: effect type mismatch;
  found   : @mod(d,x$1$1) @loc(any)
  required: @mod(ei,x$1$1) @assign(ei,any) @assign(x$1$1,any) @loc(any)
+@mod(d,x$1$1) does not conform to @mod(ei,x$1$1)
     d.eLoc = ei
            ^

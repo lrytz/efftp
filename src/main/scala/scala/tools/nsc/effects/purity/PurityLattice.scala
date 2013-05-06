@@ -30,16 +30,20 @@ trait PurityLattice extends EffectLattice {
 
 
   case class PurityEffect(mod: Mod, assign: AssignEff, loc: ResLoc) {
+    import PurityEffect._
     def toTriple = (mod, assign, loc)
     override def toString() =
       (modToString(mod) ::: assignToString(assign) ::: resLocToString(loc)).mkString(" ")
+  }
 
+  object PurityEffect{
     def modToString(mod: Mod) = List(s"@mod(${locToString(mod)})")
 
-    def assignToString(assign: AssignEff) = assign match {
+    def assignToString(assign: AssignEff, showEmpty: Boolean = false) = assign match {
       case AssignAny => List("@assign(any)")
       case Assigns(as) =>
-        as.map(p => s"@assign(${p._1.name.toString()},${locToString(p._2)})").toList
+        if (as.isEmpty && showEmpty) List("@assign()")
+        else as.map(p => s"@assign(${p._1.name.toString()},${locToString(p._2)})").toList
     }
 
     def resLocToString(loc: ResLoc) = List(s"@loc(${locToString(loc)})")

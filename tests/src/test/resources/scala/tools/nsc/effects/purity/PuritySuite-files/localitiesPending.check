@@ -1,5 +1,6 @@
 newSource:5: error: effect type mismatch;
  found   : @mod() @loc(c)
  required: @mod() @loc(a)
+@loc(c) does not conform to @loc(a)
     case c: C => c
                  ^

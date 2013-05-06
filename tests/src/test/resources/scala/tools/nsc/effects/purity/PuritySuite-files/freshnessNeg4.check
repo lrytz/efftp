@@ -1,5 +1,6 @@
 newSource:15: error: effect type mismatch;
  found   : @mod(d) @loc()
  required: @mod() @loc()
+@mod(d) does not conform to @mod()
   def f13Tc(d: D): A13Trait @loc() = new A13Trait(d)
                                      ^

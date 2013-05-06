@@ -6,6 +6,27 @@ trait PurityInfer extends Infer { this: PurityDomain =>
   import global._
   import lattice._
 
+  override def explainMismatch(expected: Effect, found: Effect): Option[String] = {
+    import PurityEffect._
+    def msg(a: List[String], b: List[String]) = s"${a.mkString(" ")} does not conform to ${b.mkString(" ")}"
+    val mod = {
+      if (found.mod lte expected.mod) Nil
+      else List(msg(modToString(found.mod), modToString(expected.mod)))
+    }
+    val assign = {
+      if (found.assign lte expected.assign) Nil
+      else List(msg(assignToString(found.assign, showEmpty = true), assignToString(expected.assign, showEmpty = true)))
+    }
+    val loc = {
+      if (found.loc lte expected.loc) Nil
+      else List(msg(resLocToString(found.loc), resLocToString(expected.loc)))
+    }
+    val msgs = (mod ::: assign ::: loc)
+    if (msgs.isEmpty) None
+    else Some(msgs.mkString("; "))
+  }
+
+  
   override def computeEffectImpl(tree: Tree, ctx: EffectContext): Effect = {
     lazy val sym = tree.symbol
     tree match {

@@ -1,11 +1,13 @@
 newSource:13: error: effect type mismatch;
  found   : @mod(A13a.this,k) @loc(any)
  required: @mod() @loc(any)
+@mod(A13a.this,k) does not conform to @mod()
       c = k
         ^
 newSource:8: error: effect type mismatch;
  found   : @mod(A13a.this) @loc()
  required: @mod() @loc(any)
+@mod(A13a.this) does not conform to @mod()
 The effect of the primary constructor does not match the annotated effect.
   class A13a {
              ^

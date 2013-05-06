@@ -18,12 +18,15 @@ trait Infer { self: EffectDomain =>
 
     private def mismatchMsg(expected: Effect, found: Effect, detailsMsg: Option[String]) =
       "effect type mismatch;\n found   : " + found + "\n required: " + expected +
+      explainMismatch(expected, found).map("\n"+_).getOrElse("") +
       detailsMsg.map("\n"+_).getOrElse("")
 
     def error(expected: Effect, found: Effect, tree: Tree, detailsMsg: Option[String]) {
       reportError(tree, mismatchMsg(expected, found, detailsMsg))
     }
   }
+  
+  def explainMismatch(expected: Effect, found: Effect): Option[String] = None
 
   /**
    * The context which is passed through effect inference.

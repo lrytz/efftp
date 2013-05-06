@@ -1,60 +1,72 @@
 newSource:4: error: effect type mismatch;
  found   : @mod() @loc(C.this)
  required: @mod() @loc()
+@loc(C.this) does not conform to @loc()
   def f1: C @loc() = this
                      ^
 newSource:5: error: effect type mismatch;
  found   : @mod() @loc(any)
  required: @mod() @loc()
+@loc(any) does not conform to @loc()
   def f2: Int @loc() = 1
                        ^
 newSource:6: error: effect type mismatch;
  found   : @mod() @loc(any)
  required: @mod() @loc()
+@loc(any) does not conform to @loc()
   def f3: String @loc() = "hai"
                           ^
 newSource:11: error: effect type mismatch;
  found   : @mod(any) @assign(any) @loc(any)
  required: @mod(x) @assign(x,any) @loc(any)
+@mod(any) does not conform to @mod(x); @assign(any) does not conform to @assign(x,any)
     inc()                     // with no effect annotation - so in this case, `inc` gets the top effect
        ^
 newSource:19: error: effect type mismatch;
  found   : @mod() @assign(any) @loc(any)
  required: @mod(x) @assign(x,any) @loc(any)
+@assign(any) does not conform to @assign(x,any)
     inc()
        ^
 newSource:27: error: effect type mismatch;
  found   : @mod() @assign(x,any) @loc(any)
  required: @mod() @assign(x,) @loc(any)
+@assign(x,any) does not conform to @assign(x,)
     def inc(): Unit @assign(x) = { x = x + 1 }
                                      ^
 newSource:37: error: effect type mismatch;
  found   : @mod() @assign(y,any) @loc(any)
  required: @mod() @loc(any)
+@assign(y,any) does not conform to @assign()
       h
       ^
 newSource:49: error: effect type mismatch;
  found   : @mod() @assign(y,any) @loc(any)
  required: @mod() @loc(any)
+@assign(y,any) does not conform to @assign()
         y = 4
           ^
 newSource:54: error: effect type mismatch;
  found   : @mod() @assign(y,any) @loc(any)
  required: @mod() @loc(any)
+@assign(y,any) does not conform to @assign()
       h1()
         ^
 newSource:56: error: effect type mismatch;
  found   : @mod() @assign(y,any) @loc(any)
  required: @mod() @loc(any)
+@assign(y,any) does not conform to @assign()
       h3
       ^
 newSource:66: error: effect type mismatch;
  found   : @mod() @assign(x,any) @loc(any)
  required: @mod() @loc(any)
+@assign(x,any) does not conform to @assign()
       case s if {x = 1; true} => {x = 3}
                    ^
 newSource:66: error: effect type mismatch;
  found   : @mod() @assign(x,any) @loc(any)
  required: @mod() @loc(any)
+@assign(x,any) does not conform to @assign()
       case s if {x = 1; true} => {x = 3}
                                     ^

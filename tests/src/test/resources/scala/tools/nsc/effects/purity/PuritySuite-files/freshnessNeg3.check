@@ -1,5 +1,6 @@
 newSource:15: error: effect type mismatch;
  found   : @mod(k) @loc()
  required: @mod() @loc()
+@mod(k) does not conform to @mod()
   def f13bc(k: K): A13b @loc() = new A13b(k)
                                  ^
