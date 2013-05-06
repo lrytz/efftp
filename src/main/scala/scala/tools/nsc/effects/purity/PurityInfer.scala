@@ -1,6 +1,7 @@
 package scala.tools.nsc.effects
 package purity
 
+// `extends Infer` allows overriding methods in Infer
 trait PurityInfer extends Infer { this: PurityDomain =>
   import global._
   import lattice._
@@ -204,10 +205,10 @@ trait PurityInfer extends Infer { this: PurityDomain =>
    *    real result locality is what is annotated on the function type. Effects and result localities
    *    propagate differently.
    */
-  override def combineApplyEffect(fun: Symbol, funEff: Effect, byValEffs: Map[Symbol, Effect],
-                                  repeatedEffs: Map[Symbol, List[Effect]], latent: Effect): Effect = {
+  override def adaptApplyEffect(fun: Symbol, funEff: Effect, byValEffs: Map[Symbol, Effect],
+                                repeatedEffs: Map[Symbol, List[Effect]], latent: Effect): Effect = {
 
-    val PurityEffect(resMod, resAssign, _) = super.combineApplyEffect(fun, funEff, byValEffs, repeatedEffs, latent)
+    val PurityEffect(resMod, resAssign, _) = super.adaptApplyEffect(fun, funEff, byValEffs, repeatedEffs, latent)
     val argLocs: Map[VarRef, Locality] = byValEffs map {
       case (sym, eff) => (SymRef(sym), eff.loc)
     }
@@ -244,5 +245,34 @@ trait PurityInfer extends Infer { this: PurityDomain =>
       Assigns(as map {
         case (sym, loc) => (sym, substitute(map, loc))
       })
+  }
+
+  /**
+   * Set the result locality of constructors to be fresh. This method is called when the effect
+   * of a primary constructor is inferred, to make sure the constructor returns a fresh object.
+   */
+  override def adaptInferredPrimaryConstrEffect(
+      constr: Symbol,
+      rhsEff: Effect,
+      fieldEffs: Map[Symbol, Effect],
+      statEffs: List[Effect],
+      traitParentConstrEffs: Map[Symbol, Effect]): Effect = {
+    val combinedEff = super.adaptInferredPrimaryConstrEffect(constr, rhsEff, fieldEffs, statEffs, traitParentConstrEffs)
+    combinedEff.copy(loc = RefSet())
+  }
+  
+  override def adaptInferredMethodEffect(method: Symbol, eff: Effect) = {
+    if (method.isConstructor) eff.copy(loc = RefSet())
+    else eff
+  }
+
+  /**
+   * This is a dual of the above: when computing the effect of a constructor, change the expected
+   * effect and allow `@loc(any)` as result locality. This hook is for constructors that are
+   * annotated as fresh, it is used when the actual effect of the constructor is checked.
+   */
+  override def adaptExpectedMethodEffect(method: Symbol, eff: Effect) = {
+    if (method.isConstructor) eff.copy(loc = AnyLoc)
+    else eff    
   }
 }

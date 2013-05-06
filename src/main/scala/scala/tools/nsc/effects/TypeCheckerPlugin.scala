@@ -314,16 +314,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
         (traitInit, eff)
       }).toMap
 
-      (combinePrimaryConstrEffect(constrSym, rhsEff, fieldEffs, statEffs, traitInitEffs), relEnv)
-    }
-    
-    def combinePrimaryConstrEffect(
-        constr: Symbol,
-        rhsEff: Effect,
-        fieldEffs: Map[Symbol, Effect],
-        statEffs: List[Effect],
-        traitParentConstrEffs: Map[Symbol, Effect]): Effect = {
-      (rhsEff /: (fieldEffs.values ++ statEffs ++ traitParentConstrEffs.values))(_ u _)
+      (domain.adaptInferredPrimaryConstrEffect(constrSym, rhsEff, fieldEffs, statEffs, traitInitEffs), relEnv)
     }
 
     /**
@@ -524,7 +515,8 @@ trait TypeCheckerPlugin { self: EffectChecker =>
           val typedRhs = typeCheckRhs(rhs, typer, pt)
           val anfRhs = maybeAnf(typedRhs, typer, pt)
 
-          (domain.computeEffect(anfRhs, effectContext(None, relEnv, typer)), relEnv)
+          val eff = domain.computeEffect(anfRhs, effectContext(None, relEnv, typer))
+          (domain.adaptInferredMethodEffect(sym, eff), relEnv)
         }
 
         def isCaseApply          = sym.isSynthetic && sym.isCase && sym.name == nme.apply
@@ -671,9 +663,9 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             val meth = tree.symbol
 
             val expectedEffect: Option[Effect] = {
-              if (meth.isPrimaryConstructor)
+              if (meth.isPrimaryConstructor) {
                 None // primary constr effes are handled separately, see case ClassDef/ModuleDef below
-              if (meth.isConstructor) {
+              } else if (meth.isConstructor) {
                 val typeDefAnnots = constrEffTypeDefAnnots(ddef, None, typer, alreadyTyped = true)
                 // we use `annotatedConstrEffect` to test if the constructor ahs an annotated effect.
                 // if that's the case, we read the expected effect from the constructor's return type.
@@ -687,7 +679,8 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             expectedEffect foreach (annotEff => {
               lazy val rhsTyper = analyzer.newTyper(typer.context.makeNewScope(ddef, meth))
               val anfRhs = maybeAnf(rhs, rhsTyper, pt)
-              domain.computeEffect(anfRhs, effectContext(Some(annotEff), relEffects(meth), typer))
+              val expected = Some(domain.adaptExpectedMethodEffect(meth, annotEff))
+              domain.computeEffect(anfRhs, effectContext(expected, relEffects(meth), typer))
             })
 
           case _: ClassDef | _: ModuleDef =>
@@ -703,11 +696,11 @@ trait TypeCheckerPlugin { self: EffectChecker =>
                 for (annotEff <- annotatedConstrEffect(constrSym, typeDefAnnots)) {
                   // as expected effect we use the one on the return type of the constructor, not the one on the
                   // constructor symbol or the typeDef
-                  val expected = fromAnnotation(constrSym.tpe)
+                  val expected = Some(domain.adaptExpectedMethodEffect(constrSym, fromAnnotation(constrSym.tpe)))
                   // the typers we pass as typer for `rhs` / `templ` don't have the correct context, but that doesn't
                   // matter. the trees are already typed, `typer` won't be used.
                   inferPrimaryConstrEff(constrSym, constrDef.rhs, typer, templ, typer,
-                                        templ.parents, alreadyTyped = true, expected = Some(expected))
+                                        templ.parents, alreadyTyped = true, expected = expected)
                 }
 
               case EmptyTree =>

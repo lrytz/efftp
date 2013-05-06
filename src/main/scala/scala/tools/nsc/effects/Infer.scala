@@ -232,11 +232,11 @@ trait Infer { self: EffectDomain =>
           latent(funSym, paramLocs.zip(unaryArgs.map(pa => argTpeAndLoc(pa._2))).toMap ++ thisLocMapping, byNameEffs, ctx)
         }
       }
-      combineApplyEffect(funSym, funEff, byValEffs, repeatedEffs, lat)
+      adaptApplyEffect(funSym, funEff, byValEffs, repeatedEffs, lat)
     }
   }
 
-  def combineApplyEffect(fun: Symbol, funEff: Effect, byValEffs: Map[Symbol, Effect], repeatedEffs: Map[Symbol, List[Effect]], latent: Effect): Effect = {
+  def adaptApplyEffect(fun: Symbol, funEff: Effect, byValEffs: Map[Symbol, Effect], repeatedEffs: Map[Symbol, List[Effect]], latent: Effect): Effect = {
     ((byValEffs.values ++ repeatedEffs.values.flatten) :\ funEff)(_ u _) u latent
   }
 
@@ -351,5 +351,27 @@ trait Infer { self: EffectDomain =>
       }
       concrete u (expandedRelEff :\ bottom)(_ u _)
     }
+  }
+
+  /**
+   * This method is invoked when the effect of a primary constructor is inferred.
+   * Effect domains can override it to customize the effect assigned to primary
+   * constructors.
+   */
+  def adaptInferredPrimaryConstrEffect(
+      constr: Symbol,
+      rhsEff: Effect,
+      fieldEffs: Map[Symbol, Effect],
+      statEffs: List[Effect],
+      traitParentConstrEffs: Map[Symbol, Effect]): Effect = {
+    (rhsEff /: (fieldEffs.values ++ statEffs ++ traitParentConstrEffs.values))(_ u _)
+  }
+
+  def adaptInferredMethodEffect(method: Symbol, eff: Effect) = {
+    eff
+  }
+  
+  def adaptExpectedMethodEffect(method: Symbol, eff: Effect) = {
+    eff
   }
 }
