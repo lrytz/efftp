@@ -23,4 +23,22 @@ class C {
     }
   }
 
+  def f2: Unit @pure = {
+    f()
+    h()
+    i()
+  }
+  
+  def f3: Unit @pure = {
+    f()
+    g()
+    i()
+  }
+  
+  def f5: Unit @pure = {
+    f()
+    g()
+    h()
+  }
+
 }

@@ -9,3 +9,35 @@ newSource:22: error: effect type mismatch;
 @mod(any) does not conform to @mod()
       case _: E2 => i()
                      ^
+newSource:28: error: effect type mismatch;
+ found   : @throws[C.this.E1]
+ required: @throws[Nothing]
+    h()
+     ^
+newSource:29: error: effect type mismatch;
+ found   : @mod(any) @loc(any)
+ required: @mod() @loc(any)
+@mod(any) does not conform to @mod()
+    i()
+     ^
+newSource:34: error: effect type mismatch;
+ found   : @io
+ required: @noIo
+    g()
+     ^
+newSource:35: error: effect type mismatch;
+ found   : @mod(any) @loc(any)
+ required: @mod() @loc(any)
+@mod(any) does not conform to @mod()
+    i()
+     ^
+newSource:41: error: effect type mismatch;
+ found   : @throws[C.this.E1]
+ required: @throws[Nothing]
+    h()
+     ^
+newSource:40: error: effect type mismatch;
+ found   : @io
+ required: @noIo
+    g()
+     ^

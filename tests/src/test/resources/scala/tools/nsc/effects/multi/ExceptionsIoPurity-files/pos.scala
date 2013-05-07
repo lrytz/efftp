@@ -22,5 +22,23 @@ class C {
       case _: E1 => f()
     }
   }
+  
+  def f2: Unit @noIo = {
+    f()
+    h()
+    i()
+  }
+  
+  def f3: Unit @throws[Nothing] = {
+    f()
+    g()
+    i()
+  }
+  
+  def f5: Unit @mod() = {
+    f()
+    g()
+    h()
+  }
 
 }
