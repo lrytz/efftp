@@ -23,7 +23,7 @@ trait PurityInfer extends Infer { this: PurityDomain =>
     }
     val msgs = (mod ::: assign ::: loc)
     if (msgs.isEmpty) None
-    else Some(msgs.mkString("; "))
+    else Some(msgs.mkString("\n"))
   }
 
   

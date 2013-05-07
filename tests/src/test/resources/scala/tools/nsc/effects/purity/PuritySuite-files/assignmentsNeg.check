@@ -19,7 +19,8 @@ newSource:6: error: effect type mismatch;
 newSource:11: error: effect type mismatch;
  found   : @mod(any) @assign(any) @loc(any)
  required: @mod(x) @assign(x,any) @loc(any)
-@mod(any) does not conform to @mod(x); @assign(any) does not conform to @assign(x,any)
+@mod(any) does not conform to @mod(x)
+@assign(any) does not conform to @assign(x,any)
     inc()                     // with no effect annotation - so in this case, `inc` gets the top effect
        ^
 newSource:19: error: effect type mismatch;

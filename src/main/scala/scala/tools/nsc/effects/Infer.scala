@@ -8,8 +8,8 @@ trait Infer { self: EffectDomain =>
    * This class is used to report effect mismatch errors.
    */
   abstract class EffectReporter {
-    protected def issueError(tree: Tree, msg: String): Unit
-    protected def setError(tree: Tree): Unit
+    def issueError(tree: Tree, msg: String): Unit
+    def setError(tree: Tree): Unit
 
     private def reportError(tree: Tree, msg: String) {
       issueError(tree, msg)
@@ -48,7 +48,7 @@ trait Infer { self: EffectDomain =>
    * Check that `found` conforms to the expected effect in `ctx` and report an error if not.
    * Returns `found` if no error is issued, `bottom` otherwise (to prevent additional spurious errors).
    */
-  def checkConform(found: Effect, tree: Tree, ctx: EffectContext): Effect = ctx.expected match {
+  final def checkConform(found: Effect, tree: Tree, ctx: EffectContext): Effect = ctx.expected match {
     case Some(expected) if !(found <= expected) =>
       ctx.reporter.error(expected, found, tree, ctx.errorInfo)
       bottom
@@ -160,7 +160,7 @@ trait Infer { self: EffectDomain =>
   /**
    * Computes the effects of all children of `tree`.
    */
-  def computeChildEffects(tree: Tree, ctx: EffectContext) = {
+  final def computeChildEffects(tree: Tree, ctx: EffectContext) = {
     class ChildEffectsTraverser(ctx: EffectContext) extends Traverser {
       val res = new collection.mutable.ListBuffer[Effect]()
 
@@ -191,7 +191,7 @@ trait Infer { self: EffectDomain =>
    * Otherwise, all relative effects of the invoked method are expanded using the concrete
    * argument types, which implements effect polymorphism.
    */
-  def computeApplyEffect(tree: Tree, ctx: EffectContext): Effect = {
+  final def computeApplyEffect(tree: Tree, ctx: EffectContext): Effect = {
     val treeInfo.Applied(fun, _, argss) = tree
     val funSym = fun.symbol
     

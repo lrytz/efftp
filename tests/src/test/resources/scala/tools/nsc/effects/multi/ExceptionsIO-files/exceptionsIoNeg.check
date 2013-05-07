@@ -1,0 +1,49 @@
+newSource:12: error: effect type mismatch;
+ found   : @throws[java.io.IOException|InterruptedException] @io
+ required: @throws[Nothing] @noIo
+@throws[java.io.IOException|InterruptedException] does not conform to @throws[Nothing]
+@io does not conform to @noIo
+    h()
+     ^
+newSource:17: error: effect type mismatch;
+ found   : @throws[Throwable]
+ required: @throws[Nothing]
+    println()
+    ^
+newSource:17: error: effect type mismatch;
+ found   : @throws[Throwable] @io
+ required: @throws[Nothing] @io
+@throws[Throwable] does not conform to @throws[Nothing]
+    println()
+           ^
+newSource:21: error: effect type mismatch;
+ found   : @io
+ required: @noIo
+    f()
+     ^
+newSource:22: error: effect type mismatch;
+ found   : @io
+ required: @noIo
+    f()
+     ^
+newSource:27: error: effect type mismatch;
+ found   : @throws[java.io.IOException]
+ required: @throws[Nothing]
+    g()
+     ^
+newSource:26: error: effect type mismatch;
+ found   : @io
+ required: @noIo
+    f()
+     ^
+newSource:31: error: effect type mismatch;
+ found   : @throws[Nothing] @io
+ required: @throws[Nothing] @noIo
+@io does not conform to @noIo
+    f()
+     ^
+newSource:39: error: effect type mismatch;
+ found   : @throws[C.this.E1]
+ required: @throws[Nothing]
+    throw new E1
+    ^

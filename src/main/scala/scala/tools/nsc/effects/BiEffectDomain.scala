@@ -11,6 +11,11 @@ abstract class BiEffectDomain extends EffectDomain {
     val global: BiEffectDomain.this.global.type
   }
 
+
+  /* ******************************* *
+   * Members from class EffectDomain *
+   * ******************************* */
+
   override val requireANF: Boolean = d1.requireANF || d2.requireANF
 
   val lattice = new BiLattice {
@@ -18,19 +23,6 @@ abstract class BiEffectDomain extends EffectDomain {
     val l2: d2.lattice.type = d2.lattice
   }
   import lattice.{Effect, BiEffect}
-
-  override def explainMismatch(expected: Effect, found: Effect): Option[String] = {
-    val msg1 = 
-      if (lattice.l1.lte(found.e1, expected.e1)) None
-      else d1.explainMismatch(expected.e1, found.e1)      
-    val msg2 = 
-      if (lattice.l2.lte(found.e2, expected.e2)) None
-      else d2.explainMismatch(expected.e2, found.e2)
-    
-    val l = (msg1.toList ::: msg2.toList)
-    if (l.isEmpty) None
-    else Some(l.mkString("; "))
-  }
   
   val annotationClasses: List[Symbol] = d1.annotationClasses ++ d2.annotationClasses
 
@@ -44,14 +36,62 @@ abstract class BiEffectDomain extends EffectDomain {
   override def accessorEffect(sym: Symbol, tpe: Type, tree: Tree): Effect =
     BiEffect(d1.accessorEffect(sym, tpe, tree), d2.accessorEffect(sym, tpe, tree))
 
+    
+    
+    
+    
+  /* ************************ *
+   * Members from trait Infer *
+   * ************************ */
+    
 
-  // TODO: avoid re-creating new domain contexts on every invocation of `computeEffect` !!
+  /**
+   * Most of the time effect errors are not reported using the reporter of the BiEffectDomain, and this
+   * method is not invoked. The reason is that `computeEffectImpl` is invoked for each effect domain with
+   * a reporter for only that domain, so if an effect error occurs within some expression, it is reported
+   * by domain.
+   * 
+   * The BiEffectDomain reporter is only used if the expression passed to `computeEffect` produces an
+   * effect mismatch itself, at top level. Example:
+   * 
+   *   def f(): Unit @pure @io = ()
+   *   def g(): Unit @pure = f()
+   *
+   * In this case the `computeEffect` call for the expression `f()` at top level will produce the error
+   * message. This call is performed by the framework on the active domain, i.e. the BiEffectDomain.
+   */
+  override def explainMismatch(expected: Effect, found: Effect): Option[String] = {
+    def msg(found: String, expected: String) = s"$found does not conform to $expected"
+    val msg1 = 
+      if (lattice.l1.lte(found.e1, expected.e1)) None
+      else d1.explainMismatch(expected.e1, found.e1).orElse(Some(msg(found.e1.toString, expected.e1.toString)))
+    val msg2 = 
+      if (lattice.l2.lte(found.e2, expected.e2)) None
+      else d2.explainMismatch(expected.e2, found.e2).orElse(Some(msg(found.e2.toString, expected.e2.toString)))
+    
+    val l = (msg1.toList ::: msg2.toList)
+    if (l.isEmpty) None
+    else Some(l.mkString("\n"))
+  }
+
+
+  private def mkReporter(d: EffectDomain { val global: BiEffectDomain.this.global.type }, origCtx: EffectContext): d.EffectReporter = {
+    new d.EffectReporter {
+      def issueError(tree: Tree, msg: String) {
+        origCtx.reporter.issueError(tree, msg)
+      }
+      def setError(tree: Tree) {
+        origCtx.reporter.setError(tree)
+      }
+    }
+  }
 
   private def d1Ctx(ctx: EffectContext): d1.EffectContext = {
     d1.EffectContext(
         ctx.expected.map(_.e1),
+        // cast needed because RelEffect is defined within the EffectDomain class, should pull it out to EffectChecker
         ctx.relEnv.asInstanceOf[List[d1.RelEffect]],
-        ctx.reporter.asInstanceOf[d1.EffectReporter],
+        mkReporter(d1, ctx),
         ctx.errorInfo,
         ctx.patternMode)
   }
@@ -59,13 +99,44 @@ abstract class BiEffectDomain extends EffectDomain {
     d2.EffectContext(
         ctx.expected.map(_.e2),
         ctx.relEnv.asInstanceOf[List[d2.RelEffect]],
-        ctx.reporter.asInstanceOf[d2.EffectReporter],
+        mkReporter(d2, ctx),
         ctx.errorInfo,
         ctx.patternMode)
   }
 
   override def computeEffectImpl(tree: Tree, ctx: EffectContext): Effect =
     BiEffect(d1.computeEffectImpl(tree, d1Ctx(ctx)), d2.computeEffectImpl(tree, d2Ctx(ctx)))
+
+
+  override def adaptApplyEffect(fun: Symbol, funEff: Effect, byValEffs: Map[Symbol, Effect], repeatedEffs: Map[Symbol, List[Effect]], latent: Effect): Effect = {
+    BiEffect(
+        d1.adaptApplyEffect(fun, funEff.e1, byValEffs.mapValues(_.e1), repeatedEffs.mapValues(_.map(_.e1)), latent.e1),
+        d2.adaptApplyEffect(fun, funEff.e2, byValEffs.mapValues(_.e2), repeatedEffs.mapValues(_.map(_.e2)), latent.e2))
+  }
+  
+  override def adaptInferredPrimaryConstrEffect(
+      constrDef: DefDef,
+      rhsEff: Effect,
+      fieldEffs: Map[Symbol, Effect],
+      statEffs: List[Effect],
+      traitParentConstrEffs: Map[Symbol, Effect]): Effect = {
+    BiEffect(
+        d1.adaptInferredPrimaryConstrEffect(constrDef, rhsEff.e1, fieldEffs.mapValues(_.e1), statEffs.map(_.e1), traitParentConstrEffs.mapValues(_.e1)),
+        d2.adaptInferredPrimaryConstrEffect(constrDef, rhsEff.e2, fieldEffs.mapValues(_.e2), statEffs.map(_.e2), traitParentConstrEffs.mapValues(_.e2)))
+  }
+
+  override def adaptInferredMethodEffect(method: Symbol, eff: Effect) = {
+    BiEffect(
+        d1.adaptInferredMethodEffect(method, eff.e1),
+        d2.adaptInferredMethodEffect(method, eff.e2))
+  }
+  
+  override def adaptExpectedMethodEffect(method: Symbol, eff: Effect) = {
+    BiEffect(
+        d1.adaptExpectedMethodEffect(method, eff.e1),
+        d2.adaptExpectedMethodEffect(method, eff.e2))
+  }
+
 }
 
 trait BiLattice extends EffectLattice {
@@ -80,6 +151,8 @@ trait BiLattice extends EffectLattice {
 
   def top: Effect = BiEffect(l1.top, l2.top)
   def bottom: Effect = BiEffect(l1.bottom, l2.bottom)
+  
+  override def effectForPureAnnotated = BiEffect(l1.effectForPureAnnotated, l2.effectForPureAnnotated)
 
   def join(a: Effect, b: Effect): Effect = BiEffect(l1.join(a.e1, b.e1), l2.join(a.e2, b.e2))
   def meet(a: Effect, b: Effect): Effect = BiEffect(l1.meet(a.e1, b.e1), l2.meet(a.e2, b.e2))

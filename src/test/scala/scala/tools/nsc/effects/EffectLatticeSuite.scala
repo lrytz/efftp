@@ -32,8 +32,8 @@ class EffectLatticeSuite extends FunSuite {
     import IOISL._
     import scala.tools.nsc.effects.{IOLattice => IOL, ISLattice => ISL}
     assert(bottom <= top)
-    assert((IOL.bottom, ISL.bottom) <= bottom)
-    assert(((NoIO, s123) u (SomeIO, ISL.bottom)) <= (SomeIO,s123))
+    assert(BiEffect(IOL.bottom, ISL.bottom) <= bottom)
+    assert((BiEffect(NoIO, s123) u BiEffect(SomeIO, ISL.bottom)) <= BiEffect(SomeIO,s123))
   }
 }
 

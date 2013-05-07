@@ -49,12 +49,12 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects wi
    *  - `bottom` if there is a `@pure` or a `@rel(...)` annotation
    *  - `top` otherwise
    */
-  def fromAnnotation(tpe: Type): Effect = fromAnnotationList(tpe.finalResultType.annotations)
+  final def fromAnnotation(tpe: Type): Effect = fromAnnotationList(tpe.finalResultType.annotations)
 
   /**
    * The effect represented by `annotations`
    */
-  def fromAnnotationList(annots: List[AnnotationInfo]) = {
+  final def fromAnnotationList(annots: List[AnnotationInfo]) = {
     val hasPureOrRel = annots.exists(ann => {
       val sym = ann.atp.typeSymbol
       sym == pureClass || sym == relClass
@@ -66,13 +66,13 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects wi
   /**
    * True there exists some effect annotations in the list `annotations`.
    */
-  def existsEffectAnnotation(annotations: List[AnnotationInfo]) = {
+  final def existsEffectAnnotation(annotations: List[AnnotationInfo]) = {
     annotations.exists(ann => allEffectAnnots.contains(ann.atp.typeSymbol))
   }
 
-  lazy val pureClass = rootMirror.getClassByName(newTypeName("scala.annotation.effects.pure"))
+  final lazy val pureClass = rootMirror.getClassByName(newTypeName("scala.annotation.effects.pure"))
 
-  lazy val allEffectAnnots = pureClass :: relClass :: annotationClasses
+  final lazy val allEffectAnnots = pureClass :: relClass :: annotationClasses
 
   /**
    * The effect that is assigned to getters and setters. This method can be overridden
@@ -99,7 +99,7 @@ trait EffectLattice {
 
   def lte(a: Effect, b: Effect): Boolean
 
-  def joinAll(effs: Effect*): Effect = {
+  final def joinAll(effs: Effect*): Effect = {
     if (effs.isEmpty) bottom
     else {
       var acc = bottom
@@ -108,7 +108,7 @@ trait EffectLattice {
     }
   }
 
-  def meetAll(effs: Effect*): Effect = {
+  final def meetAll(effs: Effect*): Effect = {
     if (effs.isEmpty) top
     else {
       var acc = top

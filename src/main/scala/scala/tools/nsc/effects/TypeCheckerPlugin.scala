@@ -736,10 +736,10 @@ trait TypeCheckerPlugin { self: EffectChecker =>
    */
   def effectContext(expected: Option[Effect], relEnv: List[RelEffect], typer: Typer, detailsMsg: Option[String] = None) = {
     def effectReporter(typer: Typer) = new EffectReporter {
-      protected def issueError(tree: Tree, msg: String) {
+      def issueError(tree: Tree, msg: String) {
         issueNormalTypeError(tree, msg)(typer.context)
       }
-      protected def setError(tree: Tree) {
+      def setError(tree: Tree) {
         typer.infer.setError(tree)
       }
     }
