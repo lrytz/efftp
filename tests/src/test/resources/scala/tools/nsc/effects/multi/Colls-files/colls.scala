@@ -185,7 +185,6 @@ object Itor {
  * ******** */
 
 
-
 trait ItrblLk[+A, +Repr] extends TravLk[A, Repr] { self: Repr =>
   def iterator: Itor[A] @pure @loc()
   def foreach[U](f: A => U): Unit @pure @rel(f) =
@@ -260,7 +259,6 @@ object Sq extends SqFct[Sq] {
 
 
 
-
 /* **** *
  * List *
  * **** */
@@ -283,6 +281,7 @@ sealed abstract class Lst[+A] extends Sq[A] with GenTravTmpl[A, Lst] with SqLk[A
 
 // @TODO: overriding a "def" using a "val" => makes it pure. do we need to annotate that?
 final case class cns[A](override val head: A, override val tail: Lst[A]) extends Lst[A] {
+//  optional constructor effect annotation
 //  @pure @mod(this) @loc() type constructorEffect
 
   override def isEmpty = false
@@ -296,19 +295,24 @@ case object nl extends Lst[Nothing] {
 object Lst extends SqFct[Lst] {
   implicit def canBuildFrom[A]: CBF[Coll, A, Lst[A]] @pure = new GCBF[A]
 
-//   @TODO: varargs factory
-//   def apply[A](elems: A*): Lst[A] @pure = {
-//     elems.foldRight(nl: Lst[A])((a, res) => cns(a, res))
-//   }
+   def apply[A](elems: A*): Lst[A] @pure = {
+     // cast because it uses the scala.Seq
+     elems.foldRight(nl: Lst[A])((a, res) => cns(a, res)): @pure
+   }
+
   def newBuilder[A]: Bldr[A, Lst[A]] @pure @loc() = new LstBldr[A]
+
   override def empty[A]: Lst[A] @pure = nl
 }
 
 
 class LstBldr[A] extends Bldr[A, Lst[A]] {
+//  optional constructor effect annotation
 //  @pure @mod(this) @loc() type constructorEffect
 
   // @local val b = new collection.mutable.ListBuffer[A]() @TODO: annotated ListBuffer
+
+  // does not need to be @local - we're not modifying any fields of the list, only the field of this builder
   var b: Lst[A] = nl
 
   def +=(a: A): this.type @pure @mod(this) = {
@@ -317,6 +321,6 @@ class LstBldr[A] extends Bldr[A, Lst[A]] {
     this
   }
 
-  def result(): Lst[A] @pure = b // Lst(b: _*)
+  def result(): Lst[A] @pure = b
 }
 
