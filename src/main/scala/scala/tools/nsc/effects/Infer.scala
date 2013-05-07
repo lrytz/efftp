@@ -117,7 +117,7 @@ trait Infer { self: EffectDomain =>
           case RelEffect(ParamLoc(relSym), None) =>
             // for primary constructor expressions, references to by-name parameters are in fact references to the
             // corresponding field. so we need to match the field symbol (sym) to the constr param (relSym)
-            relSym == sym || (isField && relSym.name == sym.name && relSym.owner.owner == sym.owner)
+            sameParam(relSym, sym) || (isField && relSym.name == sym.name && relSym.owner.owner == sym.owner)
           case _ =>
             false
         })

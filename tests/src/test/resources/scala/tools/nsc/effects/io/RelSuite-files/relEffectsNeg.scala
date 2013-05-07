@@ -20,6 +20,11 @@ object t {
   // not yet supported.. has top effect.
   def t3: Int @pure = new C1(10).foos
   def t4: Int @pure = new C1(10).y
+
+  def t5(x: => Int): Int @pure = {
+    if (true) 10
+    else x
+  }
 }
 
 // effects relative to this

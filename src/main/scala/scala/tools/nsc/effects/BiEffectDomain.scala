@@ -85,12 +85,22 @@ abstract class BiEffectDomain extends EffectDomain {
       }
     }
   }
+  
+  // this is "a bit of" a waist - but we need to copy the RelEffects to the new domain, otherwise the case class instances,
+  // e.g. `ParamLoc`, have an outer pointer to the wrong domain which breaks pattern matching.
+  //
+  // the better solution would be to pull RelEffect out of the EffectDomain, but that's not quite as straightforward.
+  def mkRelEffs(d: EffectDomain { val global: BiEffectDomain.this.global.type }, origCtx: EffectContext): List[d.RelEffect] = {
+    origCtx.relEnv map {
+      case RelEffect(ParamLoc(param), funOpt) => d.RelEffect(d.ParamLoc(param), funOpt)
+      case RelEffect(ThisLoc(cls), funOpt) => d.RelEffect(d.ThisLoc(cls), funOpt)
+    }
+  }
 
   private def d1Ctx(ctx: EffectContext): d1.EffectContext = {
     d1.EffectContext(
         ctx.expected.map(_.e1),
-        // cast needed because RelEffect is defined within the EffectDomain class, should pull it out to EffectChecker
-        ctx.relEnv.asInstanceOf[List[d1.RelEffect]],
+        mkRelEffs(d1, ctx),
         mkReporter(d1, ctx),
         ctx.errorInfo,
         ctx.patternMode)
@@ -98,7 +108,7 @@ abstract class BiEffectDomain extends EffectDomain {
   private def d2Ctx(ctx: EffectContext): d2.EffectContext = {
     d2.EffectContext(
         ctx.expected.map(_.e2),
-        ctx.relEnv.asInstanceOf[List[d2.RelEffect]],
+        mkRelEffs(d2, ctx),
         mkReporter(d2, ctx),
         ctx.errorInfo,
         ctx.patternMode)

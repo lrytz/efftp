@@ -285,7 +285,7 @@ trait RelEffects { self: EffectDomain =>
       })
   }
 
-  trait Loc { def symbol: Symbol }
+  sealed trait Loc { def symbol: Symbol }
   case class ThisLoc(cls: Symbol) extends Loc {
     def symbol = cls
   }

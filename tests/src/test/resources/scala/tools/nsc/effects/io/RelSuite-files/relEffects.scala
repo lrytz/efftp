@@ -9,6 +9,12 @@ object t {
 
   def foo(f: Int => Int): Int @rel(f) = f(f(0))
   def bar(m: MApp): Int @rel(m) = m.apply(10) + m.apply(10,20)
+  
+  def t5(x: => Int): Int @rel(x) = {
+    if (true) 10
+    else x
+  }
+
 }
 
 // effects relative to this

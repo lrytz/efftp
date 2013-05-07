@@ -3,6 +3,23 @@ package colls
 import scala.language.higherKinds
 import annotation.effects._
 
+trait Optn[+A] {
+  def isEmpty: Boolean @pure
+
+  def getOrElse[B >: A](default: => B): B @rel(default) =
+    if (isEmpty) default else (get: @pure) // effect cast
+
+  def get: A @pure @throws[NoSuchElementException]
+}
+case class Som[+A](a: A) extends Optn[A] {
+  def isEmpty = false
+  def get: A = a
+}
+case object Non extends Optn[Nothing] {
+  def isEmpty = true
+  def get = throw new NoSuchElementException()
+}
+
 trait Bldr[-Elem, +To] {
   def +=(elem: Elem): this.type @pure @mod(this)
   def result(): To @pure
@@ -15,13 +32,17 @@ trait CBF[-From, -Elem, +To] {
 trait TravLk[+A, +Repr] { self: Repr =>
   protected[this] def newBuilder: Bldr[A, Repr] @pure @loc()
 
-  def foreach[U](f: A => U): Unit @pure @rel(f.apply(%))
+  def foreach[U](f: A => U): Unit @rel(f)
 
   def isEmpty: Boolean @pure = {
     var result = true
-    for (x <- this) {
-      result = false
-    }
+    // cannot annotate masking behavior, need built-in support for `breakable` (and other library tools like `Try`)
+//  breakable {
+      for (x <- this) {
+        result = false
+//      break
+      }
+//  }
     result
   }
 
@@ -36,10 +57,10 @@ trait TravLk[+A, +Repr] { self: Repr =>
   }
 
   def head: A @pure @throws[NoSuchElementException] = {
-    var result: Option[A] = None
+    var result: Optn[A] = None
     for (x <- this) {
       // need cast for `isEmpty`, constructor `Some`
-      if (result.isEmpty: @pure) result = (Some(x): @pure)
+      if (result.isEmpty: @pure) result = (Som(x): @pure)
     }
 
     // need cast for `getOrElse`
