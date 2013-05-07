@@ -53,16 +53,13 @@ class EffectsPlugin(val global: Global) extends Plugin {
         global.abort(s"No effect domain specified")
         
       case x :: xs =>
-        x
-//        (x /: xs) {
-//          case (domain1, domain2) => new BiEffectDomain {
-//            val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
-//            val d1: EffectDomain {
-//              val global: EffectsPlugin.this.global.type
-//            } = domain1
-//            val d2 = domain2
-//          }
-//        }
+        (x /: xs) {
+          case (domain1, domain2) => new {
+            val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
+            val d1 = domain1
+            val d2 = domain2
+          } with BiEffectDomain
+        }
     }
   }
   val effectChecker = new {
