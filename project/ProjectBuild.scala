@@ -71,6 +71,7 @@ object ProjectBuild extends Build {
     javaOptions <++= (packageBin in (pluginProject, Compile)) map { pluginJar => Seq(
       "-DeffectsPlugin.jarFile="+ pluginJar.getAbsolutePath,
       "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5006"
+//      "-Defftp.traceAnf"
     )},
 
    scalacOptions <++= (packageBin in (pluginProject, Compile)) map { pluginJar => Seq(

@@ -3,22 +3,48 @@ package colls
 import scala.language.higherKinds
 import annotation.effects._
 
+
+/* ********** *
+ * Exceptions *
+ * ********** */
+
+class NoSuchElem(msg: String) extends Exception {
+//  annotations (if you want)
+//  @pure @mod(this) @loc() type constructorEffect
+}
+
+
+
+/* ****** *
+ * Option *
+ * ****** */
+
+
 trait Optn[+A] {
   def isEmpty: Boolean @pure
 
   def getOrElse[B >: A](default: => B): B @rel(default) =
     if (isEmpty) default else (get: @pure) // effect cast
 
-  def get: A @pure @throws[NoSuchElementException]
+  def get: A @pure @throws[NoSuchElem]
 }
 case class Som[+A](a: A) extends Optn[A] {
   def isEmpty = false
-  def get: A = a
+  def get = a
+//  def get: A = a    // override error
 }
 case object Non extends Optn[Nothing] {
   def isEmpty = true
-  def get = throw new NoSuchElementException()
+  def get = throw new NoSuchElem("Non.get")
 }
+
+
+
+
+/* ******* *
+ * Builder *
+ * ******* */
+
 
 trait Bldr[-Elem, +To] {
   def +=(elem: Elem): this.type @pure @mod(this)
@@ -29,6 +55,14 @@ trait CBF[-From, -Elem, +To] {
   def apply(from: From): Bldr[Elem, To] @pure @loc()
 }
 
+
+
+/* *************** *
+ * TraversableLike *
+ * *************** */
+
+
+
 trait TravLk[+A, +Repr] { self: Repr =>
   protected[this] def newBuilder: Bldr[A, Repr] @pure @loc()
 
@@ -36,7 +70,7 @@ trait TravLk[+A, +Repr] { self: Repr =>
 
   def isEmpty: Boolean @pure = {
     var result = true
-    // cannot annotate masking behavior, need built-in support for `breakable` (and other library tools like `Try`)
+//  cannot annotate masking behavior, need built-in support for `breakable` (and other library tools like `Try`)
 //  breakable {
       for (x <- this) {
         result = false
@@ -56,31 +90,27 @@ trait TravLk[+A, +Repr] { self: Repr =>
     b.result()
   }
 
-  def head: A @pure @throws[NoSuchElementException] = {
-    var result: Optn[A] = None
+  def head: A @pure @throws[NoSuchElem] = {
+    var result: Optn[A] = Non
     for (x <- this) {
-      // need cast for `isEmpty`, constructor `Some`
-      if (result.isEmpty: @pure) result = (Som(x): @pure)
+      if (result.isEmpty) result = Som(x)
     }
-
-    // need cast for `getOrElse`
-    result.getOrElse(throw new NoSuchElementException): @pure @throws[NoSuchElementException]
+    result.getOrElse(throw new NoSuchElem(""))
   }
 
-  def tail: Repr @pure @throws[UnsupportedOperationException] = {
-    // need cast for UOE constructor
-    if (isEmpty) throw (new UnsupportedOperationException("empty.tail"): @pure)
+  def tail: Repr @pure @throws[NoSuchElem] = {
+    if (isEmpty) throw new NoSuchElem("tail of empty traversable")
     drop(1)
   }
 
-  def filter(p: A => Boolean): Repr @pure @rel(p.apply(%)) = {
+  def filter(p: A => Boolean): Repr @pure @rel(p) = {
     val b = newBuilder
     for (x <- this)
       if (p(x)) b += x
     b.result()
   }
 
-  def map[B, That](f: A => B)(implicit bf: CBF[Repr, B, That]): That @pure @rel(f.apply(%)) = {
+  def map[B, That](f: A => B)(implicit bf: CBF[Repr, B, That]): That @pure @rel(f) = {
     val b = bf(self)
     for (x <- this) b += f(x)
     b.result()
@@ -89,6 +119,10 @@ trait TravLk[+A, +Repr] { self: Repr =>
 
 
 
+
+/* *********** *
+ * Traversable *
+ * *********** */
 
 
 trait GenTravTmpl[+A, +CC[X] <: Trav[X]] {
@@ -122,13 +156,16 @@ object Trav extends TravFct[Trav] {
 
 
 
+/* ******** *
+ * Iterator *
+ * ******** */
 
 trait Itor[+A] {
   def hasNext: Boolean @pure
-  def next(): A @pure @mod(this) @throws[NoSuchElementException]
+  def next(): A @pure @mod(this) @throws[NoSuchElem]
   def isEmpty: Boolean @pure = !hasNext
-  def foreach[U](f: A => U): Unit @pure @mod(this) @rel(f.apply(%)) = {
-    while (hasNext) f(next()) // @TODO: mask NSE
+  def foreach[U](f: A => U): Unit @pure @mod(this) @rel(f) = {
+    while (hasNext) f(next(): @pure @mod(this)) // effect cast for call to `next`
     ()
   }
 }
@@ -136,19 +173,22 @@ trait Itor[+A] {
 object Itor {
   val empty = new Itor[Nothing] {
     def hasNext: Boolean @pure = false
-    def next(): Nothing @pure @throws[NoSuchElementException] = throw (new NoSuchElementException("next on empty iterator"): @pure)
+    def next(): Nothing @pure @throws[NoSuchElem] = throw new NoSuchElem("next on empty iterator")
   }
 }
 
 
 
 
+/* ******** *
+ * Iterable *
+ * ******** */
 
 
 
 trait ItrblLk[+A, +Repr] extends TravLk[A, Repr] { self: Repr =>
   def iterator: Itor[A] @pure @loc()
-  def foreach[U](f: A => U): Unit @pure @rel(f.apply(%)) =
+  def foreach[U](f: A => U): Unit @pure @rel(f) =
     iterator.foreach(f)
 }
 
@@ -161,32 +201,45 @@ object Itrbl extends TravFct[Itrbl] {
 
 
 
+/* *** *
+ * Seq *
+ * *** */
+
 trait SqLk[+A, +Repr <: SqLk[A, Repr]] extends ItrblLk[A, Repr] { self: Repr =>
   def length: Int @pure
-  def apply(idx: Int): A @pure @throws[NoSuchElementException | UnsupportedOperationException]
+  def apply(idx: Int): A @pure @throws[NoSuchElem]
 
   def iterator: Itor[A] @pure @loc() = {
-    class Ann extends Itor[A] {
-      @pure @mod(this) @loc() type constructorEffect
+    new Itor[A] {
+//      @pure @mod(this) @loc() type constructorEffect = Nothing
       var these = self // not @local!
       def hasNext: Boolean @pure = !these.isEmpty
-      def next(): A @pure @throws[NoSuchElementException] /*@throws[UnsupportedOperationException]*/ @mod(this) =
+      def next(): A @pure @throws[NoSuchElem] @mod(this) =
         if (hasNext) {
-          // TODO: if(hasNext) => "tail" will not throw the UnsupportedOperationException...
-          val result = these.head; these = these.tail; result
+          val result = these.head
+          these = these.tail        // no need to cast away the @throws[NoSuchElem] effect - allowed anyway
+          result
         } else Itor.empty.next()
     }
-    new Ann
   }
-    /* @TODO: the constructor of the anonymous class is not inferred, resulting in an effect error (need a fresh value!)     new Itor[A] {
-    var these = self // not @local!
-    def hasNext: Boolean @pure = !these.isEmpty
-    def next(): A @pure @throws[NoSuchElementException] /*@throws[UnsupportedOperationException]*/ @mod(this) =
-      if (hasNext) {
-        // TODO: if(hasNext) => "tail" will not throw the UnsupportedOperationException...
-        val result = these.head; these = these.tail; result
-      } else Itor.empty.next()
-  }*/
+
+// same as above, but with a named class
+  
+//  def iterator: Itor[A] @pure @loc() = {
+//    class Ann extends Itor[A] {
+//      @pure @mod(this) @loc() type constructorEffect
+//      var these = self // not @local!
+//      def hasNext: Boolean @pure = !these.isEmpty
+//      def next(): A @pure @throws[NoSuchElem] @mod(this) =
+//        if (hasNext) {
+//          val result = these.head
+//          these = these.tail        // no need to cast away the @throws[NoSuchElem] effect - allowed anyway
+//          result
+//        } else Itor.empty.next()
+//    }
+//    new Ann
+//  }
+
 }
 
 
@@ -205,42 +258,65 @@ object Sq extends SqFct[Sq] {
 
 
 
-@pure @loc() sealed abstract class Lst[+A] extends Sq[A] with GenTravTmpl[A, Lst] with SqLk[A, Lst[A]] {
-  def apply(idx: Int): A @pure @throws[NoSuchElementException | UnsupportedOperationException] = if (idx == 0) head else tail(idx - 1)
-  def length: Int @pure = if (isEmpty) 0 else 1+tail.length
+
+
+
+/* **** *
+ * List *
+ * **** */
+
+
+// @pure @loc() 
+sealed abstract class Lst[+A] extends Sq[A] with GenTravTmpl[A, Lst] with SqLk[A, Lst[A]] {
+  def apply(idx: Int): A @pure @throws[NoSuchElem] = {
+    if (idx == 0) head
+    else tail(idx - 1)
+  }
+
+  def length: Int @pure = {
+    if (isEmpty) 0
+    else 1 + (tail: @pure).length // effect cast for `@throws[NoSuchElem]` of `tail`
+  }
+
   override def companion: GenCpn[Lst] @pure = Lst
 }
 
 // @TODO: overriding a "def" using a "val" => makes it pure. do we need to annotate that?
 final case class cns[A](override val head: A, override val tail: Lst[A]) extends Lst[A] {
-  @pure @mod(this) @loc() type constructorEffect
-  override def isEmpty: Boolean @pure = false
+//  @pure @mod(this) @loc() type constructorEffect
+
+  override def isEmpty = false
 }
 
 case object nl extends Lst[Nothing] {
-  override def isEmpty: Boolean @pure = true
+  override def isEmpty = true
 }
 
-class LstBldr[A] extends Bldr[A, Lst[A]] {
-  @pure @mod(this) @loc() type constructorEffect
-  // @local val b = new collection.mutable.ListBuffer[A]() @TODO
-  var b: Lst[A] = nl
-  def +=(a: A): this.type @pure @mod(this) = {
-    // b += a // @mod(this); need to know that ListBuffer.+= has effect @mod(this)
-    b = new cns(a, b)
-    this
-  }
-  def result(): Lst[A] @pure = b // Lst(b: _*)
-}
 
 object Lst extends SqFct[Lst] {
   implicit def canBuildFrom[A]: CBF[Coll, A, Lst[A]] @pure = new GCBF[A]
 
-  // @TODO
-  // def apply[A](elems: A*): Lst[A] @pure = {
-    // elems.foldRight(nl: Lst[A])((a, res) => cns(a, res))
-  // }
+//   @TODO: varargs factory
+//   def apply[A](elems: A*): Lst[A] @pure = {
+//     elems.foldRight(nl: Lst[A])((a, res) => cns(a, res))
+//   }
   def newBuilder[A]: Bldr[A, Lst[A]] @pure @loc() = new LstBldr[A]
   override def empty[A]: Lst[A] @pure = nl
+}
+
+
+class LstBldr[A] extends Bldr[A, Lst[A]] {
+//  @pure @mod(this) @loc() type constructorEffect
+
+  // @local val b = new collection.mutable.ListBuffer[A]() @TODO: annotated ListBuffer
+  var b: Lst[A] = nl
+
+  def +=(a: A): this.type @pure @mod(this) = {
+    // b += a // when using ListBuffer
+    b = new cns(a, b)
+    this
+  }
+
+  def result(): Lst[A] @pure = b // Lst(b: _*)
 }
 
