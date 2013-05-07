@@ -22,3 +22,17 @@ newSource:29: error: effect type mismatch;
 @mod(d,x$1$1) does not conform to @mod(ei,x$1$1)
     d.eLoc = ei
            ^
+newSource:35: error: effect type mismatch;
+ found   : @mod(NoSuchElem.this) @loc()
+ required: @mod() @loc(any)
+@mod(NoSuchElem.this) does not conform to @mod()
+The effect of the primary constructor does not match the annotated effect.
+  class NoSuchElem(msg: String) extends Exception {
+                  ^
+newSource:40: error: effect type mismatch;
+ found   : @mod(a,Ku.this) @loc()
+ required: @mod() @loc(any)
+@mod(a,Ku.this) does not conform to @mod()
+The effect of the primary constructor does not match the annotated effect.
+  class Ku(@local a: NoSuchElem) {
+          ^

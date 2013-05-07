@@ -30,4 +30,14 @@ class C {
     ei = e2
   }
 
+  // whenever a clas has a parameter, the constructor effect is `@mod(this)` becuase
+  // the fields for the parameters are initialized in the constructor
+  class NoSuchElem(msg: String) extends Exception {
+    @pure @mod() @loc() type constructorEffect
+  }
+  
+  // `@local` parameters are always in the `@mod` effect of constructors
+  class Ku(@local a: NoSuchElem) {
+    @pure @mod() @loc() type constructorEffect
+  }
 }

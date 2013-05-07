@@ -101,7 +101,13 @@ trait Infer { self: EffectDomain =>
       case (_: Ident | _: Select) if (sym.isModule && !sym.isPackage) =>
         // selection of a module has the effect of the module constructor
         val constr = sym.moduleClass.primaryConstructor
-        latent(constr, Map(), Map(), ctx)
+        if (constr == NoSymbol) { 
+          // modules holding static members of java classes
+          assert(sym.isJavaDefined, "could not find primary constructor for module: "+ sym)
+          bottom
+        } else {
+          latent(constr, Map(), Map(), ctx)
+        }
 
       case (_: Ident | _: Select) if sym.isLazy =>
         latent(sym, Map(), Map(), ctx)

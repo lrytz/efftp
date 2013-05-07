@@ -29,11 +29,15 @@ object defaults {
 
   def t1: Int @pure = fip()
   def t2: Int @pure = new DefClass().y
+
+  class C(x: String @pure = "aha")
+  def f: C @pure @loc() = new C()
 }
 
 class DefClass(x: Int @pure = 1) {
   def y = x
 }
+
 
 
 object repeated {

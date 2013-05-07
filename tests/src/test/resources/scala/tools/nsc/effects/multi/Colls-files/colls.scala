@@ -4,11 +4,28 @@ import scala.language.higherKinds
 import annotation.effects._
 
 
+
+/* ******** *
+ * Preamble *
+ * ******** */
+
+object ioPrimitives {
+  def show(a: Any): Unit @pure @io = {
+    // inner cast required due to ANF transform
+    println(a.toString: @pure): @pure @io
+  }
+}
+
+import ioPrimitives._
+
+
 /* ********** *
  * Exceptions *
  * ********** */
 
-class NoSuchElem(msg: String) extends Exception {
+// effect annotation on parameter type applies to default getter. they are
+// not inferred - since we have an explicit type
+class NoSuchElem(msg: String @pure = "") extends Exception {
 //  annotations (if you want)
 //  @pure @mod(this) @loc() type constructorEffect
 }
@@ -95,7 +112,7 @@ trait TravLk[+A, +Repr] { self: Repr =>
     for (x <- this) {
       if (result.isEmpty) result = Som(x)
     }
-    result.getOrElse(throw new NoSuchElem(""))
+    result.getOrElse(throw new NoSuchElem("head of empty traversable"))
   }
 
   def tail: Repr @pure @throws[NoSuchElem] = {
@@ -232,7 +249,7 @@ trait SqLk[+A, +Repr <: SqLk[A, Repr]] extends ItrblLk[A, Repr] { self: Repr =>
 //      def next(): A @pure @throws[NoSuchElem] @mod(this) =
 //        if (hasNext) {
 //          val result = these.head
-//          these = these.tail        // no need to cast away the @throws[NoSuchElem] effect - allowed anyway
+//          these = these.tail
 //          result
 //        } else Itor.empty.next()
 //    }
