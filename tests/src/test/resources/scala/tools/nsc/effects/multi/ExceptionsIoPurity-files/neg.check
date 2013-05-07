@@ -1,0 +1,11 @@
+newSource:20: error: effect type mismatch;
+ found   : @throws[C.this.E1]
+ required: @throws[C.this.E2]
+      h()
+       ^
+newSource:22: error: effect type mismatch;
+ found   : @mod(any) @loc(any)
+ required: @mod() @loc(any)
+@mod(any) does not conform to @mod()
+      case _: E2 => i()
+                     ^
