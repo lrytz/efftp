@@ -145,14 +145,25 @@ trait Infer { self: EffectDomain =>
    * is defined. Instead of overriding this methods, effect domains should override `computeEffectImpl`.
    */
   final def computeEffect(tree: Tree, ctx: EffectContext): Effect = {
-    if (tree.isErroneous) bottom
-    else tree match {
-      /*** Type Ascriptions: if they contain effect annotations, they are treated as effect casts ***/
-      case Typed(expr, tpt) if existsEffectAnnotation(tpt.tpe.annotations) =>
-        fromAnnotation(tpt.tpe)
+    def collectAnnots(typed: Typed): List[AnnotationInfo] ={
+      typed.tpt.tpe.annotations ::: (typed.expr match {
+        case typed1: Typed => collectAnnots(typed1)
+        case _ => Nil
+      })
+    }
 
-      case _ =>
-        checkConform(computeEffectImpl(tree, ctx), tree, ctx)
+    if (tree.isErroneous) bottom
+    else {
+
+      val e = tree match {
+        /*** Type Ascriptions: if they contain effect annotations, they are treated as effect casts ***/
+        case typed: Typed if existsEffectAnnotation(collectAnnots(typed)) =>
+          fromAnnotationList(collectAnnots(typed))
+
+        case _ =>
+          computeEffectImpl(tree, ctx)
+      }
+      checkConform(e, tree, ctx)
     }
   }
 

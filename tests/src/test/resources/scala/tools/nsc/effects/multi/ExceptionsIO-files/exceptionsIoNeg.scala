@@ -38,4 +38,15 @@ class C {
     f1
     throw new E1
   }
+
+  def f7: Unit @pure = {
+    (f(): @noIo)
+  }
+
+  def f8: Unit @pure = {
+    {
+      throw new E1
+      f()
+    }: @noIo
+  }
 }

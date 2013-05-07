@@ -30,4 +30,23 @@ class C {
     f1
     throw new E1
   }
+  
+  
+  def f7: Unit @pure = {
+    (f(): @pure)
+  }
+
+  def f8a: Unit @pure @throws[E1] = {
+    {
+      throw new E1
+      f()
+    }: @noIo @throws[E1]
+  }
+
+  def f8b: Unit @pure @throws[E1] = {
+    {
+      throw new E1
+      f()
+    }: Unit @noIo @throws[E1]
+  }
 }
