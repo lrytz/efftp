@@ -68,3 +68,9 @@ newSource:64: error: effect type mismatch;
  required: @noIo
   def foo: Int @pure = tee.x
                        ^
+newSource:80: error: illegal cyclic reference involving constructor D3
+    new D3(10)
+    ^
+newSource:85: error: too many arguments for constructor D6: ()D6
+  def this(x: Int) = this(1)
+                     ^

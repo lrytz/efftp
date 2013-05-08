@@ -519,7 +519,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
       case ddef @ DefDef(_, _, _, _, tpt, rhs) =>
         val sym = defTree.symbol
 
-        def inferMethodEff(pt: Type = pt): (Effect, List[RelEffect]) = {
+        def inferMethodEff(rhs: Tree = rhs, pt: Type = pt): (Effect, List[RelEffect]) = {
           // since the effect of the mehtod is inferred, the relative effect is inherited from the enclosing method.
           // see comment on `def relEffects`
           val relEnv = relEffects(sym.owner.enclMethod)
@@ -547,12 +547,66 @@ trait TypeCheckerPlugin { self: EffectChecker =>
            */
           val typeDefAnnots = constrEffTypeDefAnnots(ddef, None, typer, alreadyTyped = false)
           val (rhsE, relEffs) = annotatedConstrEffect(sym, typeDefAnnots).getOrElse {
-            // Hack, but YEAH. This allows effect inference for auxiliary constructors. `tpt.tpe` is the correct
-            // return type for the constructor (without effect annotations). Having a non-lazy type prevents a cyclic
-            // reference when resolving the correct overload of the self-constructor-invocation. Since auxiliary
-            // constructors can only call earlier ones, this is safe. Nobody will observe the temporary type.
-            sym.setInfo(tpt.tpe)
-            inferMethodEff(pt = WildcardType)
+            
+            /* All code in here is to support effect inference for auxiliary constructors.
+             * The problem with those is the self constructor invocation:
+             * 
+             *   class C(a: Int) {
+             *     def this() = this(1)
+             *   }
+             * 
+             * In order to compute the effect of the second constructor, we first need to type
+             * check its body. However, the self constructor call would fail to type check, the
+             * reference to `this` triggers type completion of both constructor symbols, therefore
+             * leads to a cyclic reference.
+             * 
+             * However, self constructor calls are special because we know they can only invoke one
+             * of the earlier construtors (they cannot be recursive, or call constructor defined below).
+             * 
+             * The idea here is to type-check the self constructor invocation in a special context
+             * which has all preceding constructors in its scope (more precisely: it has a constructor
+             * symbol in scope which has an overloaded type that includes all preceding constructors).
+             * 
+             * So when type-checking `this(1)`, only the primary constructor is in scope, which avoids
+             * the cyclic reference.
+             */
+            
+            def isSelfConstrCall(t: Tree) = t match {
+              case Ident(nme.CONSTRUCTOR) => true
+              case treeInfo.Applied(Ident(nme.CONSTRUCTOR), Nil, argss) => true
+              case _ => false
+            }
+            
+            def typedSelfConstrCall(t: Tree): Tree = {
+              val origCtx = typer.context
+              val ctx = origCtx.makeNewScope(origCtx.tree, origCtx.owner)
+              
+              val (templ, _) = templates(sym.owner)
+              val (precedingConstrs, _) = templ.body collect {
+                case d @ DefDef(_, nme.CONSTRUCTOR, _, _, _, _) => d.symbol
+              } span { c => c != sym }
+              precedingConstrs match {
+                case Nil => ()
+                case s :: Nil =>
+                  ctx.scope.enter(s)
+                case s :: ss =>
+                  val overloaded = s.owner.newOverloaded(s.info.prefix, precedingConstrs)
+                  ctx.scope.enter(overloaded)
+              }
+              val tpr = analyzer.newTyper(ctx)
+              tpr.typed(t, WildcardType)
+            }
+            
+            val effRhs = rhs match {
+              case Block(s :: ss, e) if isSelfConstrCall(s) =>
+                Block(typedSelfConstrCall(s) :: ss, e).setPos(rhs.pos)
+
+              case t if isSelfConstrCall(t) =>
+                typedSelfConstrCall(t)
+                
+              case _ => rhs
+            }
+            inferMethodEff(rhs = effRhs, pt = WildcardType)
           }
           setEffect(tpe, rhsE, relEffs)
 

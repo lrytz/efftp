@@ -1,5 +1,5 @@
 package scala.tools.nsc.effects
 
-class DebugSuite extends PosNegSuite("io:exceptions:purity") {
+class DebugSuite extends PosNegSuite("io") { // ("io:exceptions:purity") {
   //  override val updateCheck: List[String] = List("purityEffectsNeg")
 }

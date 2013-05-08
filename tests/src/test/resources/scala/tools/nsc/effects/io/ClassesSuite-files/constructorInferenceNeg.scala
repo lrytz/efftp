@@ -70,4 +70,20 @@ object tee {
 }
 
 
+class D3 {
+  def this(i: Int) = {
+    this()
+    foo()
+  }
+  
+  def foo() = {
+    new D3(10)
+  }
+}
+
+class D6 {
+  def this(x: Int) = this(1)
+}
+
+
 
