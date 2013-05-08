@@ -7,11 +7,34 @@ trait TypeUtils { self: EffectChecker =>
   import lattice.Effect
 
   /**
+   * A singleton type with a given underlying type. The SingleType in the compiler computes `underlying` as
+   * `tpe.pre.memberType(tpe.sym).resultType`. This is problematic if the `sym` has effect annotations, then
+   * the underlying type will have effect annotations. However, the types assigned to trees are not allowed
+   * to have effect annotations, this can trigger spurious type mismatch errors due to the AnnotationChecker.
+   * 
+   * Therefore, if the `underlying` of a SingleType has some effect annotations, the method `removeAnnotations`
+   * returns a `FixedUnderlyingSingleType` instead.
+   */
+  final class FixedUnderlyingSingleType(pre: Type, sym: Symbol, override val underlying: Type) extends SingleType(pre, sym)
+  
+  /**
    * Remove annotations with a type in `cls` from the type `tp`.
    */
   private def removeAnnotations(tp: Type, cls: List[Symbol]): Type = tp match {
     case AnnotatedType(annots, underlying, _) =>
       underlying.withAnnotations(annots.filterNot(ann => cls.contains(ann.atp.typeSymbol)))
+    
+    case st @ SingleType(pre, sym) =>
+      val underlying = st.underlying
+      val cleanUnderlying = removeAnnotations(underlying, cls)
+      if (cleanUnderlying eq underlying) st
+      else new FixedUnderlyingSingleType(pre, sym, cleanUnderlying)
+
+    case ExistentialType(quantified, underlying) =>
+      val cleanUnderlying = removeAnnotations(underlying, cls)
+      if (cleanUnderlying eq underlying) tp
+      else ExistentialType(quantified, cleanUnderlying)
+
     case tp => tp
   }
 

@@ -36,7 +36,7 @@ The mismatch is due to a statement in the class body.
   y // has effect!
   ^
 newSource:61: error: type mismatch;
- found   : t5.aIo.type (with underlying type A @scala.annotation.effects.noIo)
+ found   : t5.aIo.type (with underlying type A)
  required: A{def foo: Int @scala.annotation.effects.noIo}
   hm0(aIo)
       ^
