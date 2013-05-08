@@ -137,9 +137,53 @@ trait TypeCheckerPlugin { self: EffectChecker =>
      */
     override def isActive(): Boolean = pluginIsActive()
 
-    // todo: weak map, or clear it. OR: use tree attachments, attach (Template, Typer) to the primary constructor DefDef
-    val templates: mutable.Map[Symbol, (Template, Typer)] = mutable.Map()
 
+    
+    /**
+     * This map associciates class symbols (module class symbols for objects) with their `Template`
+     * tree and the `Typer` instance for typing their body. These are needed for type-and-effect
+     * checking primary constructors: their effect also contains field initializers, constructor
+     * statements and parent constructor calls.
+     * 
+     * NOTE: the typer is stored in this HashMap is the one used during `Namers`. It contains in
+     * its scope all members that are defined in the template. CAREFUL: that exact same scope is
+     * also used in the `ClassInfoType` which is assigned to the class symbol. This means: entering
+     * a symbol to that scope will enter it into the `ClassInfoType`! There was a bug related to
+     * this fact (before typing and effect-checking the template statements, we entered the `self`
+     * symbol into the scope. This turned the `self` symbol into a member of the class, and some
+     * `Ident(self)` trees were resolved to the wrong symbol afterwards).
+     * 
+     * Therefore, the `get` method returns a typer whose context has a fresh, empty scope.
+     * 
+     * @TODO: use a weak map, or clear it, or use tree attachments, attach (Template, Typer) to the
+     * primary constructor DefDef
+     */
+    object templates {
+      private val templates: mutable.Map[Symbol, (Template, Typer)] = mutable.Map()
+      def add(cls: Symbol, tpl: Template, tpr: Typer) = {
+        templates += (cls -> (tpl, tpr))
+      }
+
+
+      def enterTplSyms(templ: Template, templTyper: Typer) {
+        val self1 = templ.self match {
+          case vd @ ValDef(_, _, tpt, EmptyTree) =>
+            val tpt1 = treeCopy.TypeTree(tpt).setOriginal(tpt) setType vd.symbol.tpe
+            copyValDef(vd)(tpt = tpt1, rhs = EmptyTree) setType NoType
+        }
+        if (self1.name != nme.WILDCARD)
+          templTyper.context.scope enter self1.symbol
+        templTyper.namer.enterSyms(templ.body)
+      }
+      
+      def get(cls: Symbol): (Template, Typer) = {
+        val (templ, tpr) = templates(cls)
+        val templTyper = analyzer.newTyper(tpr.context.outer.make(templ, cls, newScope))
+        enterTplSyms(templ, templTyper)
+        (templ, templTyper)
+      }
+    }
+    
     lazy val ConstrEffTypeDefName = newTypeName("constructorEffect")
 
 
@@ -281,20 +325,16 @@ trait TypeCheckerPlugin { self: EffectChecker =>
           
         import scala.collection.mutable.ListBuffer
         
-        // typer with a new context, this context will be modified during on imports. makes sure
-        // that templTyper is not modified (maybe not necessary, did not check).
-        val localTyper = analyzer.newTyper(templTyper.context.make(templ))
-
         // lazy vals don't contribute to the constructor effect
         def keepField(vd: ValDef) =
           !(vd.symbol.isParamAccessor || vd.symbol.isEarlyInitialized || vd.symbol.isLazy)
         
         def fieldTyper(vd: ValDef) =
-          analyzer.newTyper(localTyper.context.makeNewScope(vd, vd.symbol))
+          analyzer.newTyper(templTyper.context.makeNewScope(vd, vd.symbol))
 
         def statTyper(stat: Tree) = {
           val statsOwner = templ.symbol orElse constrSym.owner.newLocalDummy(templ.pos)
-          analyzer.newTyper(localTyper.context.make(stat, statsOwner))
+          analyzer.newTyper(templTyper.context.make(stat, statsOwner))
         }
 
         val init = (Map[Symbol, Effect](), ListBuffer[Effect]())
@@ -305,7 +345,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
               // like in typedStats
               imp.symbol.initialize
               if (!imp.symbol.isError) {
-                localTyper.context = localTyper.context.makeNewImport(imp)
+                templTyper.context = templTyper.context.makeNewImport(imp)
               }
               (fields, stats)
 
@@ -449,31 +489,10 @@ trait TypeCheckerPlugin { self: EffectChecker =>
      */
     private def primaryConstrEff(ddef: DefDef, defTyper: Typer): (Effect, List[RelEffect]) = {
       val constrSym = ddef.symbol
-      val (templ, templateTyper) = templates(constrSym.owner)
+      val (templ, templateTyper) = templates.get(constrSym.owner)
 
-      def inferConstrEff: (Effect, List[RelEffect]) = {
-
-        /* For the primary constructor, we have to include effects from the template:
-         *  - constructor body
-         *    - we have to type check everything (that also type checks early definitions)
-         *    - we have to replace the `pendingSuperCall` by a real super call like in typedTemplate
-         *  - fields: the effect of their rhs is added to the return type (see `case ValDef` below)
-         *  - early initializer fields: discard them (see constructor body)
-         *  - statements in the template: type check them and compute their effects
-         *  - effects of trait parent constructors
-         */
-
-        def enterTplSyms() {
-          val self1 = templ.self match {
-            case vd @ ValDef(_, _, tpt, EmptyTree) =>
-              val tpt1 = treeCopy.TypeTree(tpt).setOriginal(tpt) setType vd.symbol.tpe
-              copyValDef(vd)(tpt = tpt1, rhs = EmptyTree) setType NoType
-          }
-          if (self1.name != nme.WILDCARD)
-            templateTyper.context.scope enter self1.symbol
-          templateTyper.namer.enterSyms(templ.body)
-        }
-        enterTplSyms()
+      val typeDefAnnots = constrEffTypeDefAnnots(ddef, Some(templ), templateTyper, alreadyTyped = false)
+      annotatedConstrEffect(constrSym, typeDefAnnots).getOrElse {
 
         val typedParents = analyzer.newTyper(templateTyper.context.outer).parentTypes(templ)
 
@@ -490,11 +509,6 @@ trait TypeCheckerPlugin { self: EffectChecker =>
         */
         inferPrimaryConstrEff(ddef, defTyper, templ, templateTyper,
                               typedParents, alreadyTyped = false, expected = None)
-      }
-
-      val typeDefAnnots = constrEffTypeDefAnnots(ddef, Some(templ), templateTyper, alreadyTyped = false)
-      annotatedConstrEffect(constrSym, typeDefAnnots).getOrElse {
-        inferConstrEff
       }
     }
 
@@ -613,7 +627,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
               val origCtx = typer.context
               val ctx = origCtx.makeNewScope(origCtx.tree, origCtx.owner)
               
-              val (templ, _) = templates(sym.owner)
+              val (templ, _) = templates.get(sym.owner)
               val (precedingConstrs, _) = templ.body collect {
                 case d @ DefDef(_, nme.CONSTRUCTOR, _, _, _, _) => d.symbol
               } span { c => c != sym }
@@ -676,7 +690,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
 
       case impl: Template =>
         // typer.context.owner is the class symbol for ClassDefs, the moduleClassSymbol for ModuleDefs
-        templates += typer.context.owner -> (impl, typer)
+        templates.add(typer.context.owner, impl, typer)
         tpe
 
       case _ =>
@@ -789,7 +803,7 @@ trait TypeCheckerPlugin { self: EffectChecker =>
             treeInfo.firstConstructor(templ.body) match {
               case constrDef: DefDef =>
                 val constrSym = constrDef.symbol
-                val (_, templTyper) = templates(constrSym.owner)
+                val (_, templTyper) = templates.get(constrSym.owner)
                 val constrDefTyper = analyzer.newTyper(templTyper.context.makeNewScope(constrDef, constrSym))
                 val typeDefAnnots = constrEffTypeDefAnnots(constrDef, Some(templ), templTyper, alreadyTyped = true)
                 for (annotEff <- annotatedConstrEffect(constrSym, typeDefAnnots)) {

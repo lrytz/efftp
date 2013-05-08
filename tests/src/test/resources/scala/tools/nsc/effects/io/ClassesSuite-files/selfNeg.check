@@ -1,0 +1,6 @@
+newSource:11: error: not found: value self
+    override def readOnly: S[A] = self.readOnly
+                                  ^
+newSource:26: error: not found: value self
+    override def readOnly: S[A] = self.readOnly
+                                  ^
