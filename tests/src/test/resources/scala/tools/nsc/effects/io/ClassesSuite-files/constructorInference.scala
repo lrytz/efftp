@@ -108,3 +108,17 @@ class T[K, V](x: Int) {
   def this() = this(H.d, E.u)
 }
 
+
+
+// imports within a template
+class M1 {
+  import M1._
+  protected var x: Int = foo()
+}
+
+object M1 {
+  def foo() = 1
+}
+
+
+

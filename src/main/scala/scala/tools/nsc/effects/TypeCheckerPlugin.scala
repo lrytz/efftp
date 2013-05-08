@@ -262,6 +262,9 @@ trait TypeCheckerPlugin { self: EffectChecker =>
       val statementContextMsg = Some(constrMismatchMsg + s"\nThe mismatch is due to a statement in the ${ownerKindString} body.")
       val parentContextMsg    = Some(constrMismatchMsg + "\nThe mismatch is due to the initializer of a parent trait.")
 
+
+      /* constroctor effect */
+      
       val typedConstrBody =
         if (alreadyTyped) constrBody
         else typeCheckRhs(constrBody, defTyper, WildcardType)
@@ -271,43 +274,69 @@ trait TypeCheckerPlugin { self: EffectChecker =>
 
       val rhsEff = domain.computeEffect(anfConstrBody, effectContext(expected, relEnv, defTyper, superContextMsg))
 
-      val fields = templ.body collect {
+      
+      /* field initializers and statements in class body */
+      
+      val (fieldEffs: Map[Symbol, Effect], statEffs: List[Effect]) = {
+          
+        import scala.collection.mutable.ListBuffer
+        
+        // typer with a new context, this context will be modified during on imports. makes sure
+        // that templTyper is not modified (maybe not necessary, did not check).
+        val localTyper = analyzer.newTyper(templTyper.context.make(templ))
+
         // lazy vals don't contribute to the constructor effect
-        case vd: ValDef if !(vd.symbol.isParamAccessor || vd.symbol.isEarlyInitialized || vd.symbol.isLazy) => vd
-      }
-      val fieldEffs = fields.map({ vd =>
-        val fieldSym = vd.symbol
-        lazy val fieldTyper = analyzer.newTyper(templTyper.context.makeNewScope(vd, fieldSym))
-        val typedFieldRhs =
-          if (alreadyTyped) vd.rhs
-          else {
-            typeCheckRhs(vd.rhs, fieldTyper, fieldSym.tpe)
-          }
-        val anfFieldRhs = maybeAnf(typedFieldRhs, fieldTyper, fieldSym.tpe)
-        val eff = domain.computeEffect(anfFieldRhs, effectContext(expected, relEnv, templTyper, fieldContextMsg))
-        (fieldSym, eff)
-      }).toMap
+        def keepField(vd: ValDef) =
+          !(vd.symbol.isParamAccessor || vd.symbol.isEarlyInitialized || vd.symbol.isLazy)
+        
+        def fieldTyper(vd: ValDef) =
+          analyzer.newTyper(localTyper.context.makeNewScope(vd, vd.symbol))
 
-      val statements = templ.body filter {
-        case Import(_, _) => false // @TODO imports handling
-        case s => !s.isDef
-      }
-      val anfStats = {
-        if (alreadyTyped) statements
-        else {
+        def statTyper(stat: Tree) = {
           val statsOwner = templ.symbol orElse constrSym.owner.newLocalDummy(templ.pos)
-          // TODO: would need to handle imports within the class, see typedStats in Typers
-          statements.map(stat => {
-            val localTyper = analyzer.newTyper(templTyper.context.make(stat, statsOwner))
-            val typedStat = localTyper.typed(stat)
-            maybeAnf(typedStat, localTyper, WildcardType)
-          })
+          analyzer.newTyper(localTyper.context.make(stat, statsOwner))
         }
-      }
-      val statEffs = anfStats map { stat =>
-        domain.computeEffect(stat, effectContext(expected, relEnv, templTyper, statementContextMsg))
-      }
 
+        val init = (Map[Symbol, Effect](), ListBuffer[Effect]())
+
+        val res = (init /: templ.body) {
+          case ((fields, stats), stat) => stat match {
+            case imp: Import =>
+              // like in typedStats
+              imp.symbol.initialize
+              if (!imp.symbol.isError) {
+                localTyper.context = localTyper.context.makeNewImport(imp)
+              }
+              (fields, stats)
+
+            case vd: ValDef if keepField(vd) =>
+              lazy val tpr = fieldTyper(vd)
+              val fieldSym = vd.symbol
+              val typedRhs = if (alreadyTyped) vd.rhs else typeCheckRhs(vd.rhs, tpr, fieldSym.tpe)
+              val anfRhs = maybeAnf(typedRhs, tpr, fieldSym.tpe)
+              // use templTyper for effectContext, don't force tpr: it's only used for error reporting, so doesn't really matter
+              val eff = domain.computeEffect(anfRhs, effectContext(expected, relEnv, templTyper, fieldContextMsg))
+              (fields + (fieldSym -> eff), stats)
+
+              
+            case s if !s.isDef =>
+              lazy val tpr = statTyper(s)
+              val typedStat = if (alreadyTyped) s else tpr.typed(s)
+              val anfStat = maybeAnf(typedStat, tpr, WildcardType)
+              val eff = domain.computeEffect(anfStat, effectContext(expected, relEnv, templTyper, statementContextMsg))
+              (fields, stats += eff)
+
+            case _ =>
+              (fields, stats)
+          }
+        }
+
+        (res._1, res._2.toList)
+      }
+      
+
+      /* initializers of parent traits */
+      
       val traitInitEffs = typedParents.tail.map({ parent =>
         // fromAnnotation(parent.tpe.typeSymbol.primaryConstructor.info)
         val traitInit = parent.tpe.typeSymbol.primaryConstructor
@@ -320,6 +349,9 @@ trait TypeCheckerPlugin { self: EffectChecker =>
           }
         (traitInit, eff)
       }).toMap
+
+
+      /* putting everything together */
 
       val resEff = adaptInferredPrimaryConstrEffect(constrDef, rhsEff, fieldEffs, statEffs, traitInitEffs)
       // need to check that the effect conforms because `adaptInferredPrimaryConstrEffect` might return a larger effect
