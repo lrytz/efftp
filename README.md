@@ -1,5 +1,13 @@
 # Effects Plugin for Scala
 
+This repo has the source of a Scala compiler plugin for effect checking. For documentation
+refer to the [Wiki on Gihub](https://github.com/lrytz/efftp/wiki).
+
+## Scala Version
+
+* 2.10 in general (master branch)
+* `scala-2.11` branch available (not tested recently, and master might not merge cleanly)
+
 ## Building
 
 The plugin builds with `sbt`. The `master` branch of the effects plugin builds against
