@@ -705,6 +705,13 @@ trait TypeCheckerPlugin { self: EffectChecker =>
         // the constructor, but whenever the field is accessed.
         val relEnv = relEffects(vdef.symbol.enclMethod)
         val e = domain.computeEffect(anfRhs, effectContext(None, relEnv, typer))
+        // TODO: maybe it's a bad idea to put the effect on the lazy val type - it's the only place where a
+        // value has an effect annotation, and this is exactly what we try to avoid (in pluginsTyped). Having
+        // effect annotations on values leads to all random interactions with the typer, because terms suddenly
+        // have effects, which triggers the annotationChecker.
+        // Alternative to putting the effect on the lazy val type: put it as an attachment in the symbol. but
+        // the problem is, it needs to work across separate compilation. maybe we can put it inside another
+        // annotation which is not a type constraint (@lazyValEffect(...)).
         setEffect(tpe, e, relEnv)
 
       case impl: Template =>

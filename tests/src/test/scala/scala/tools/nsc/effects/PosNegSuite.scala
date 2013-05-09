@@ -15,9 +15,7 @@ import diff_match_patch.Operation._
 /**
  * A ScalaTest suite for testing the compiler.
  */
-abstract class PosNegSuite(domains: List[String]) extends FunSuite {
-
-  def this(domain: String) = this(List(domain))
+abstract class PosNegSuite(domains: String, moreSettings: List[String] = List()) extends FunSuite {
 
   /**
    * If the name of a test is in this list, a `.check` file will be created (existing ones are
@@ -55,7 +53,7 @@ abstract class PosNegSuite(domains: List[String]) extends FunSuite {
   }
 
 
-  val compiler = new EffectsCompiler(domains)
+  val compiler = new EffectsCompiler(domains, moreSettings)
 
   val sep = sys.props("file.separator")
 

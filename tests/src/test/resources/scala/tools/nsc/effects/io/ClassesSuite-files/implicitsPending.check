@@ -1,0 +1,33 @@
+newSource:14: error: ambiguous implicit values:
+ both value cOne in trait A of type => C1.this.C @scala.annotation.effects.noIo
+ and value cTwo in class B of type C1.this.C
+ match expected type C1.this.C
+    def foo = implicitly[C]
+                        ^
+newSource:51: error: ambiguous implicit values:
+ both value cOne in trait A of type => C2b.this.C @scala.annotation.effects.noIo
+ and value cTwo of type => C2b.this.C @scala.annotation.effects.noIo
+ match expected type C2b.this.C
+      implicitly[C]
+                ^
+error: ambiguous implicit values:
+ both value tag in class UnrolledBuffer of type => scala.reflect.ClassTag[T] @scala.annotation.effects.noIo
+ and value t in class DoublingUnrolledBuffer of type scala.reflect.ClassTag[T]
+ match expected type scala.reflect.ClassTag[T]
+error: ambiguous implicit values:
+ both value tag in class UnrolledBuffer of type => scala.reflect.ClassTag[T] @scala.annotation.effects.noIo
+ and value t in class DoublingUnrolledBuffer of type scala.reflect.ClassTag[T]
+ match expected type scala.reflect.ClassTag[T]
+newSource:63: error: cannot find class tag for element type T
+    def newUnrolled = new Unrolled[T](0, new Array[T](4), null, this)
+                                         ^
+newSource:63: error: ambiguous implicit values:
+ both value tag in class UnrolledBuffer of type => scala.reflect.ClassTag[T] @scala.annotation.effects.noIo
+ and value t in class DoublingUnrolledBuffer of type scala.reflect.ClassTag[T]
+ match expected type scala.reflect.ClassTag[T]
+    def newUnrolled = new Unrolled[T](0, new Array[T](4), null, this)
+                      ^
+error: ambiguous implicit values:
+ both value tag in class UnrolledBuffer of type => scala.reflect.ClassTag[T] @scala.annotation.effects.noIo
+ and value t in class DoublingUnrolledBuffer of type scala.reflect.ClassTag[T]
+ match expected type scala.reflect.ClassTag[T]

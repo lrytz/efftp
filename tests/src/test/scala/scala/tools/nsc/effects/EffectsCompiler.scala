@@ -6,17 +6,19 @@ import scala.tools.nsc.{Global, Settings}
 import scala.tools.nsc.reporters.{ConsoleReporter, Reporter}
 import reflect.internal.util.BatchSourceFile
 
-class EffectsCompiler(domains: List[String]) {
+class EffectsCompiler(domains: String, moreSettings: List[String] = List()) {
 
   def extraSettings: String = ""
 
   private val effectsPluginJar = sys.props("effectsPlugin.jarFile")
-  private def effectTestSettings = List(
-    "-usejavacp",
-    "-Ystop-after:refchecks",
-    s"-Xplugin:$effectsPluginJar",
-    s"-P:effects:domains:${domains.mkString(":")}"
-  ).mkString(" ")
+  private def effectTestSettings = {
+    val basicSettings = List(
+      "-usejavacp",
+      "-Ystop-after:refchecks",
+      s"-Xplugin:$effectsPluginJar",
+      s"-P:effects:domains:$domains")
+    (basicSettings ::: moreSettings).mkString(" ")
+  }
 
   private def allSettings = s"$effectTestSettings $extraSettings"
 
