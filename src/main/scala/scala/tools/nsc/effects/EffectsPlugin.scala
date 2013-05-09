@@ -71,15 +71,16 @@ class EffectsPlugin(val global: Global) extends Plugin {
     val domain = EffectsPlugin.this.domain
   } with TypeCheckerPlugin
 
-  val cleanupPhase = new {
-    val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
-    val typeCheckerPlugin = typerPlugin
-  } with EffectsCleanup
+//  disabled for now - maybe useful if we end up having issues in later phases
+//  val cleanupPhase = new {
+//    val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
+//    val typeCheckerPlugin = typerPlugin
+//  } with EffectsCleanup
 
   /**
    * The compiler components that will be applied when running this plugin
    */
-  val components = List(cleanupPhase)
+  val components = Nil // List(cleanupPhase)
 
 
 
@@ -119,3 +120,14 @@ class EffectsPlugin(val global: Global) extends Plugin {
   }
 }
 
+/* Some globally useful things */
+object EffectsPlugin {
+  lazy val traceAnf = sys.props.isDefinedAt("efftp.traceAnf")
+
+  // debugging stuff
+  def printRes[T](res: T, msg: String = ""): T = {
+    print(msg)
+    println(res)
+    res
+  }
+}
