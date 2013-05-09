@@ -53,7 +53,7 @@ abstract class PosNegSuite(domains: String, moreSettings: List[String] = List())
   }
 
 
-  val compiler = new EffectsCompiler(domains, moreSettings)
+  def compiler = new EffectsCompiler(domains, moreSettings)
 
   val sep = sys.props("file.separator")
 

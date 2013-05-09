@@ -62,15 +62,24 @@ class EffectsPlugin(val global: Global) extends Plugin {
         }
     }
   }
-  val effectChecker = new {
+
+  /* Create the TypeCheckerPlugin instance. Its constructor will register the analyzer plugin
+   * and the annotation checker. No compiler phase is needed.
+   */
+  val typerPlugin = new {
     val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
     val domain = EffectsPlugin.this.domain
-  } with EffectChecker
+  } with TypeCheckerPlugin
+
+  val cleanupPhase = new {
+    val global: EffectsPlugin.this.global.type = EffectsPlugin.this.global
+    val typeCheckerPlugin = typerPlugin
+  } with EffectsCleanup
 
   /**
    * The compiler components that will be applied when running this plugin
    */
-  val components = List(effectChecker)
+  val components = List(cleanupPhase)
 
 
 

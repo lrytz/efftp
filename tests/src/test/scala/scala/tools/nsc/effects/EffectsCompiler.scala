@@ -14,7 +14,7 @@ class EffectsCompiler(domains: String, moreSettings: List[String] = List()) {
   private def effectTestSettings = {
     val basicSettings = List(
       "-usejavacp",
-      "-Ystop-after:refchecks",
+      "-Ystop-after:dce",
       s"-Xplugin:$effectsPluginJar",
       s"-P:effects:domains:$domains")
     (basicSettings ::: moreSettings).mkString(" ")

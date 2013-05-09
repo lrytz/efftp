@@ -1,6 +1,6 @@
 package scala.tools.nsc.effects
 
-trait TypeUtils { self: EffectChecker =>
+trait TypeUtils { self: TypeCheckerPlugin =>
 
   import global._
   import domain._

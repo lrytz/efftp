@@ -10,7 +10,7 @@ object t {
 case class C(x: Int, y: Int)(z: Int)
 
 
-class CC {
+object CC {
   final class SNode[V](final val v: V)
   
   class INode[V] {

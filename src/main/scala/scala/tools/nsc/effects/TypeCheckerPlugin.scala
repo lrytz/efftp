@@ -1,8 +1,15 @@
 package scala.tools.nsc.effects
 
+import scala.tools.nsc.Global
+
 import collection.mutable
 
-trait TypeCheckerPlugin { self: EffectChecker =>
+trait TypeCheckerPlugin extends TypeUtils { // self: EffectChecker =>
+  val global: Global
+
+  val domain: EffectDomain {
+    val global: TypeCheckerPlugin.this.global.type
+  }
 
   import global._
   import analyzer.{AnalyzerPlugin, Typer, AbsTypeError, SilentResultValue, SilentTypeError}
