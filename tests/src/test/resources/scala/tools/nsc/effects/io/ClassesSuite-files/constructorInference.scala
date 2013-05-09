@@ -122,3 +122,32 @@ object M1 {
 
 
 
+class HK1 {
+  trait Map[A] {
+    def make: WithDefault[A] = new WithDefault[A]
+  }
+
+  // polymorphic parent with inferred parameter type. there was a bug related to that.
+  class WithDefault[A] extends WithDef with Map[A]
+
+  class WithDef[A]
+}
+
+class HK2 {
+  trait Map[A, B] extends GMap[A, B] {
+    def withDefaultValue(d: B): Map[A, B] = new Map.WithDefault[A, B](this, x => d)
+  }
+
+  object Map {
+    class WithDefault[A, B](underlying: Map[A, B], d: A => B) extends GMap.WithDefault(underlying, d) with Map[A, B] {
+
+    }
+  }
+
+  trait GMap[A, +B]
+  object GMap {
+    abstract class WithDefault[A, +B](underlying: Map[A, B], d: A => B) extends GMap[A, B]
+  }
+}
+
+

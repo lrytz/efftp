@@ -297,7 +297,6 @@ trait TypeCheckerPlugin { self: EffectChecker =>
     def inferPrimaryConstrEff(constrDef: DefDef, defTyper: Typer, templ: Template, templTyper: Typer,
                               typedParents: List[Tree], alreadyTyped: Boolean, expected: Option[Effect]): (Effect, List[RelEffect]) = {
       val constrSym = constrDef.symbol
-      val constrBody = constrDef.rhs
       
       val constrMismatchMsg = "The effect of the primary constructor does not match the annotated effect."
       val superContextMsg     = Some(constrMismatchMsg + "\nThe mismatch is either due to the super constructor call or an early definition.")
@@ -308,6 +307,26 @@ trait TypeCheckerPlugin { self: EffectChecker =>
 
 
       /* constroctor effect */
+      
+      /* We create a copy of the block as a workaround for a bug. The problem is that `Typer.parentTypes` only works
+       * correctly for polymorphic parent types with inferred type arguments if the `rhs` block of the primary constructor
+       * does not have a type. `parentTypes` creates a copy of the primary constructor body, eliminating the `()` in the
+       * primary constructor block, and placing a modified `super` call:
+       * 
+       *   val cbody1 = treeCopy.Block(cbody, preSuperStats, .. transformSuperCall(superCall) ..)
+       * 
+       * The `cbody1` is then type-checked, which infers the type arguments for the porymorphic parent. The problem is: if
+       * the initial block `cbody` already has a type, then that type is assigned by `treeCopy` to `cbody1`. Since the
+       * constructor block ends in `()`, the type of `cbody` is always Unit (if it is defined). The result is surprising
+       * error messages ("illegal inheritance from final class Unit").
+       * 
+       * To avoid this problem we always create a copy of the primary constructor block. This makes sure we don't assign
+       * the Unit type to the block reachable through the template.
+       */
+      val constrBody = constrDef.rhs match {
+        case Block(stats, expr) => Block(stats, expr).copyAttrs(constrDef.rhs)
+        case _ => constrDef.rhs
+      }
       
       val typedConstrBody =
         if (alreadyTyped) constrBody
