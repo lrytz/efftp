@@ -1,0 +1,4 @@
+newSource:18: error: error during expansion of this match (this is a scalac bug).
+The underlying error was: type arguments [A.this.ScanLeaf[U] @scala.annotation.effects.noIo] do not conform to method asInstanceOf's type parameter bounds [T0]
+    private def iterate(tree: ScanTree[U]): Unit = tree match {
+                                                        ^
