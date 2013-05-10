@@ -49,3 +49,10 @@ T.scala:24: error: effect type mismatch;
                                     ^
 three errors found
 ```
+
+
+## More Examples
+
+Have a look at the [tests](https://github.com/lrytz/efftp/tree/master/tests/src/test/resources/scala/tools/nsc/effects).
+
+The most enlightening test is probably [the one on collections](https://github.com/lrytz/efftp/blob/master/tests/src/test/resources/scala/tools/nsc/effects/multi/Colls-files/colls.scala)
