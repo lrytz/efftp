@@ -39,7 +39,7 @@ object ProjectBuild extends Build {
   )
 
 
-  lazy val pluginProject: Project = Project(id = "plugin", base = file(".")) settings (
+  lazy val pluginProject: Project = Project(id = "effects-plugin", base = file(".")) settings (
     name := "effects-plugin"
 
     // #customScalaVersion
@@ -53,7 +53,7 @@ object ProjectBuild extends Build {
 // sbt> set (scalacOptions in testsProject) += "-Yshow-trees"
 
   lazy val testsProject = Project(id = "tests", base = file("tests")) settings (
-    name := "effects-tests",
+    name := "tests",
 
     unmanagedBase <<= (unmanagedBase in pluginProject),
 
