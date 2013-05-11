@@ -1,11 +1,7 @@
 package scala.annotation.effects
 
 /**
- * Annotation to mark a method as pure across all effect domains.
+ * The `@pure` annotation marks a method as pure across all effect domains.
+ * Arguments to the `@pure` annotation denote relative effects.
  */
-class pure extends Effect
-
-/**
- * A relative effect annotation
- */
-class rel(args: Any*) extends Effect
+class pure(args: Any*) extends Effect

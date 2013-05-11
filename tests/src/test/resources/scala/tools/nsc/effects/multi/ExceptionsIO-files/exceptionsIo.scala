@@ -50,12 +50,15 @@ class C {
     }: Unit @noIo @throws[E1]
   }
 
-  def f9a[B](default: () => B): B @rel(default.apply()) = 
+  def f9a[B](default: () => B): B @pure(default.apply()) = 
     default()
 
-  def f9b(default: => Int): Int @rel(default) =
+  def f9aa[B](default: () => B): B @pure(default) = 
+    default()
+
+  def f9b(default: => Int): Int @pure(default) =
     default
 
-  def f9b[B](default: => B): B @rel(default) = 
+  def f9b[B](default: => B): B @pure(default) = 
     default
 }

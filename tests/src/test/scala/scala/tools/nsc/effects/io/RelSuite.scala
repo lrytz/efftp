@@ -7,9 +7,9 @@ import scala.annotation.effects._
 
 class RelSuite extends PosNegSuite("io") {
 
-//  override val updateCheck: List[String] = List("relEffectsNeg")
+ // override val updateCheck: List[String] = List("relEffectsNeg")
 
-  def ho(f: Int => Int): Int @noIo @rel(f.apply(%)) = {
+  def ho(f: Int => Int): Int @noIo @pure(f.apply(%)) = {
     f(10)
   }
 
@@ -28,7 +28,7 @@ class RelSuite extends PosNegSuite("io") {
     def faa: Int = 1
   }
 
-  def hm(a: A): Int @noIo @rel(a.foo) = {
+  def hm(a: A): Int @noIo @pure(a.foo) = {
     a.foo
   }
 
@@ -53,20 +53,20 @@ class RelSuite extends PosNegSuite("io") {
   }
 
   test("forward parameter of effect-poly method into another effect-poly method") {
-    def hm1(a1: A): Int @noIo @rel(a1.foo) = {
+    def hm1(a1: A): Int @noIo @pure(a1.foo) = {
       hm(a1)
     }
   }
 
 
   test("method / function definitions inside an effect-polymorphic method inheirt the rel effect") {
-    def hn(a: A): Int @noIo @rel(a.foo) = {
-      // should test that inferred type has the @rel(a.foo) annotation (checked in debugger, it's ok)
+    def hn(a: A): Int @noIo @pure(a.foo) = {
+      // should test that inferred type has the @pure(a.foo) annotation (checked in debugger, it's ok)
       // just inferring @noIo would be unsound
       def bar = a.foo
-      def buz: Int @noIo @rel(a.foo) = a.foo
+      def buz: Int @noIo @pure(a.foo) = a.foo
       val fun = () => a.foo
-      val fon: (() => Int) { def apply(): Int @noIo @rel(a.foo) } = () => a.foo
+      val fon: (() => Int) { def apply(): Int @noIo @pure(a.foo) } = () => a.foo
       bar
       buz
       fun()
@@ -76,8 +76,8 @@ class RelSuite extends PosNegSuite("io") {
 
 
   test("relative effects are translated between effect-polymorphic functions") {
-    def ho2(g: Int => Int): Int @noIo @rel(g.apply(%)) = {
-      // inferred effect for "x => g(x)" is (Int => Int @noIo @rel(g.apply(%)) - not just @noIo, that would
+    def ho2(g: Int => Int): Int @noIo @pure(g.apply(%)) = {
+      // inferred effect for "x => g(x)" is (Int => Int @noIo @pure(g.apply(%)) - not just @noIo, that would
       // be unsound. see neg test below.
       ho(x => g(x))
     }
@@ -86,9 +86,9 @@ class RelSuite extends PosNegSuite("io") {
   def needPure(f: (Int => Int){ def apply(x: Int): Int @noIo }): Int @noIo = f(1)
 
   test("function literals have relative effect annotation, but only if necessary") {
-    def hoRel(g: Int => Int): Int @noIo @rel(g.apply(%)) = {
+    def hoRel(g: Int => Int): Int @noIo @pure(g.apply(%)) = {
       val funRel = (x: Int) => g(x)
-      // for funP, the inference algorithm does NOT add a relative effect `@rel(g.apply)` because
+      // for funP, the inference algorithm does NOT add a relative effect `@pure(g.apply)` because
       // the body of the function does not call the method `g.apply`
       val funP = (x: Int) => x
       needPure(funP)
@@ -97,34 +97,34 @@ class RelSuite extends PosNegSuite("io") {
 
 
   test("passing parameter as argument into another effect-polymorphic method translates the relative effect") {
-    def ho3(g: Int => Int): Int @noIo @rel(g.apply(%)) = {
+    def ho3(g: Int => Int): Int @noIo @pure(g.apply(%)) = {
       ho(g)
     }
   }
 
 
   test("subtyping and relative effects") {
-    def ho(f: Int => Int): Int @rel(f.apply(%)) = {
+    def ho(f: Int => Int): Int @pure(f.apply(%)) = {
       val f1 = () => f(10)
 
-      def t11: (() => Int) {def apply(): Int @rel(f.apply(%))} = f1
+      def t11: (() => Int) {def apply(): Int @pure(f.apply(%))} = f1
       def t13: (() => Int) {def apply(): Int @io} = f1
 
       val f2 = () => 10
-      def t21: (() => Int) {def apply(): Int @rel(f.apply(%))} = f2
+      def t21: (() => Int) {def apply(): Int @pure(f.apply(%))} = f2
       def t22: (() => Int) {def apply(): Int @pure} = f2
       def t23: (() => Int) {def apply(): Int @io} = f2
 
       0
     }
 
-    def hm(a: A): Int @io @rel(a.foo, a.faa) = {
+    def hm(a: A): Int @io @pure(a.foo, a.faa) = {
       val f1 = () => a.foo
-      def tf1: (() => Int) {def apply(): Int @rel(a.foo, a.faa)} = f1
+      def tf1: (() => Int) {def apply(): Int @pure(a.foo, a.faa)} = f1
 
-      val o1 = new { def t: Int @rel(a.foo) = a.foo }
-      def to1: { def t: Int @rel(a.foo, a.faa) } = o1
-      def to2: { def t: Int @rel(a.foo) } = o1
+      val o1 = new { def t: Int @pure(a.foo) = a.foo }
+      def to1: { def t: Int @pure(a.foo, a.faa) } = o1
+      def to2: { def t: Int @pure(a.foo) } = o1
       def to5: { def t: Int } = o1
 
       0

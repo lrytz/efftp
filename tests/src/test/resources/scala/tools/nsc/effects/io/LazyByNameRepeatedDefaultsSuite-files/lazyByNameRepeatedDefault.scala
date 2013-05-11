@@ -5,7 +5,7 @@ object t {
   def t2: Int @pure = f00(1)
   def t3: Int @pure = f00({ 1 + 1 })
 
-  def f00(x: => Int): Int @rel(x) = {
+  def f00(x: => Int): Int @pure(x) = {
     x
     1
   }
@@ -46,9 +46,9 @@ object repeated {
 
   def t1: Int @pure = huh(1,2,3,{1+1})
 
-  def hoh(x: Int, y: Int*)(f: Int => Int): Int @rel(f) = f(x)
+  def hoh(x: Int, y: Int*)(f: Int => Int): Int @pure(f) = f(x)
 
   def t2: Int @pure = hoh(1,2,3)(x => x + 1)
 
-  def hih(g: Int => Int): Int @rel(g) = hoh(1)(g)
+  def hih(g: Int => Int): Int @pure(g) = hoh(1)(g)
 }

@@ -10,7 +10,7 @@ object t {
     x
     1
   }
-  def f00R(x: => Int): Int @rel(x) = x
+  def f00R(x: => Int): Int @pure(x) = x
 }
 
 @pure
@@ -41,6 +41,6 @@ object repeated {
   def huh(x: Int, y: Int*): Int @pure = 1
   def t1: Int @pure = huh(1,2,3,{println();1})
 
-  def hoh(x: Int, y: Int*)(f: Int => Int): Int @rel(f) = f(x)
+  def hoh(x: Int, y: Int*)(f: Int => Int): Int @pure(f) = f(x)
   def t2: Int @pure = hoh(1,2,3)(x => {println(); x + 1})
 }

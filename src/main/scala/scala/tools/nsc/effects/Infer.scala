@@ -117,7 +117,7 @@ trait Infer { self: EffectDomain =>
         bottom
 
       case (_: Ident | _: Select) if (sym.isByNameParam || definitions.isByNameParamType(sym.tpe)) =>
-        // if the enclosing method is annotated `@rel(x)` for by-name parameter `x`, delay the effect
+        // if the enclosing method is annotated `@pure(x)` for by-name parameter `x`, delay the effect
         val isField = sym.isParamAccessor
         val hasRel = ctx.relEnv.exists({
           case RelEffect(ParamLoc(relSym), None) =>
@@ -224,7 +224,7 @@ trait Infer { self: EffectDomain =>
       }
   
       // for by-name parameters, the effect of the argument expression is only included if the
-      // callee has a `@rel(x)` annotation for the by-name parameter x (done by `latent` below)
+      // callee has a `@pure(x)` annotation for the by-name parameter x (done by `latent` below)
       val (
         byNameEffs: Map[Symbol, Effect],
         byValEffs: Map[Symbol, Effect],

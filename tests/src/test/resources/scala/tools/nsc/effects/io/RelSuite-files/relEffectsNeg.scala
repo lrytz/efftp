@@ -4,13 +4,13 @@ object t {
   def t1: Unit @pure = (new C).likeBap()
 
   // maake sure we only get one error message here
-  def twice(f: Int => Int, x: Int): Int @rel(f) = f(f(x))
+  def twice(f: Int => Int, x: Int): Int @pure(f) = f(f(x))
   def plusTwoE(x: Int): Int @pure = twice(x => { println(); x + 1 }, x)
 
 
 
   def foo(f: Int => Int) = new {
-    def bar(x: Int): Int @rel(f.apply(%)) = f(x)
+    def bar(x: Int): Int @pure(f.apply(%)) = f(x)
   }
 
   // not yet supported.. has top effect
@@ -32,7 +32,7 @@ class C {
   // top effect
   def bap(): Unit = ()
 
-  def likeBap(): Unit @rel(this.bap()) = {
+  def likeBap(): Unit @pure(this.bap()) = {
     this.bap()
   }
 }
@@ -40,7 +40,7 @@ class C {
 class C1(x: => Int) {
   @pure type constructorEffect
   def foos = x   // has effect! see below
-  lazy val y = x // @rel(x) would not work here; x is a field. also if it has type @rel(x), that effect would need
+  lazy val y = x // @pure(x) would not work here; x is a field. also if it has type @pure(x), that effect would need
                  // to be replaced with a concrete effect on instantiating a C, which is not yet supported.
   y // has effect!
 }
@@ -51,7 +51,7 @@ abstract class A {
 }
 
 object t5 {
-  def hm(a: A): Int @noIo @rel(a.foo) = {
+  def hm(a: A): Int @noIo @pure(a.foo) = {
     a.foo
   }
   def hm0(a1: A { def foo: Int @noIo }): Int @noIo = {
@@ -64,7 +64,7 @@ object t5 {
 
 object t6 {
   def needPure(f: (Int => Int){ def apply(x: Int): Int @noIo }): Int @noIo = f(1)
-  def hoRel(g: Int => Int): Int @noIo @rel(g.apply(%)) = {
+  def hoRel(g: Int => Int): Int @noIo @pure(g.apply(%)) = {
     val funRel = (x: Int) => g(x)
     // this should NOT type check (and doesn't): the function `funRel` has a relative effect and
     // therefore doesn't conform to the expected type of `needPure`
@@ -73,7 +73,7 @@ object t6 {
 }
 
 object t7 {
-  def ho(f: Int => Int): Int @rel(f.apply(%)) = {
+  def ho(f: Int => Int): Int @pure(f.apply(%)) = {
     def t12: (() => Int) {def apply(): Int @noIo} = f1
     0
   }
@@ -81,14 +81,14 @@ object t7 {
 
 
 object t8 {
-  def hm(a: A): Int @io @rel(a.foo, a.faa) = {
+  def hm(a: A): Int @io @pure(a.foo, a.faa) = {
     val f1 = () => a.foo
-    def tf2: (() => Int) {def apply(): Int @rel(a.foo)} = f1
-    def tf3: (() => Int) {def apply(): Int @rel()} = f1
+    def tf2: (() => Int) {def apply(): Int @pure(a.foo)} = f1
+    def tf3: (() => Int) {def apply(): Int @pure()} = f1
 
-    val o1 = new { def t: Int @rel(a.foo) = a.foo }
-    def to3: { def t: Int @rel(a.faa) } = o1
-    def to4: { def t: Int @rel() } = o1
+    val o1 = new { def t: Int @pure(a.foo) = a.foo }
+    def to3: { def t: Int @pure(a.faa) } = o1
+    def to4: { def t: Int @pure() } = o1
 
     0
   }
@@ -107,7 +107,7 @@ object t9 {
 // also used to crash, after reporting the (correct) error
 object t10 {
   abstract class A { def foo: Int }
-  def hn(a: A):Int @noIo @rel(a.foo) = {
+  def hn(a: A):Int @noIo @pure(a.foo) = {
     def buz: Int @noIo = a.foo // not allowed, a.foo might have an effect.
     buz
   }

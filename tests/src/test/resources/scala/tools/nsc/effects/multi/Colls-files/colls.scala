@@ -40,7 +40,7 @@ class NoSuchElem(msg: String @pure = "") extends Exception {
 trait Optn[+A] {
   def isEmpty: Boolean @pure
 
-  def getOrElse[B >: A](default: => B): B @rel(default) =
+  def getOrElse[B >: A](default: => B): B @pure(default) =
     if (isEmpty) default else (get: @pure) // effect cast
 
   def get: A @pure @throws[NoSuchElem]
@@ -83,7 +83,7 @@ trait CBF[-From, -Elem, +To] {
 trait TravLk[+A, +Repr] { self: Repr =>
   protected[this] def newBuilder: Bldr[A, Repr] @pure @loc()
 
-  def foreach[U](f: A => U): Unit @rel(f)
+  def foreach[U](f: A => U): Unit @pure(f)
 
   def isEmpty: Boolean @pure = {
     var result = true
@@ -120,14 +120,14 @@ trait TravLk[+A, +Repr] { self: Repr =>
     drop(1)
   }
 
-  def filter(p: A => Boolean): Repr @pure @rel(p) = {
+  def filter(p: A => Boolean): Repr @pure(p) = {
     val b = newBuilder
     for (x <- this)
       if (p(x)) b += x
     b.result()
   }
 
-  def map[B, That](f: A => B)(implicit bf: CBF[Repr, B, That]): That @pure @rel(f) = {
+  def map[B, That](f: A => B)(implicit bf: CBF[Repr, B, That]): That @pure(f) = {
     val b = bf(self)
     for (x <- this) b += f(x)
     b.result()
@@ -181,7 +181,7 @@ trait Itor[+A] {
   def hasNext: Boolean @pure
   def next(): A @pure @mod(this) @throws[NoSuchElem]
   def isEmpty: Boolean @pure = !hasNext
-  def foreach[U](f: A => U): Unit @pure @mod(this) @rel(f) = {
+  def foreach[U](f: A => U): Unit @mod(this) @pure(f) = {
     while (hasNext) f(next(): @pure @mod(this)) // effect cast for call to `next`
     ()
   }
@@ -204,7 +204,7 @@ object Itor {
 
 trait ItrblLk[+A, +Repr] extends TravLk[A, Repr] { self: Repr =>
   def iterator: Itor[A] @pure @loc()
-  def foreach[U](f: A => U): Unit @pure @rel(f) =
+  def foreach[U](f: A => U): Unit @pure(f) =
     iterator.foreach(f)
 }
 

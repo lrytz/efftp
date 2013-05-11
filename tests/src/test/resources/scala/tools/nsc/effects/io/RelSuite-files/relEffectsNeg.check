@@ -41,7 +41,7 @@ newSource:61: error: type mismatch;
   hm0(aIo)
       ^
 newSource:71: error: type mismatch;
- found   : Int => Int{def apply(x$1: Int): Int @scala.annotation.effects.rel(g.apply(%)) @scala.annotation.effects.noIo}
+ found   : Int => Int{def apply(x$1: Int): Int @scala.annotation.effects.pure(g.apply(%)) @scala.annotation.effects.noIo}
  required: Int => Int{def apply(x: Int): Int @scala.annotation.effects.noIo}
     needPure(funRel)
              ^
@@ -49,25 +49,25 @@ newSource:77: error: not found: value f1
     def t12: (() => Int) {def apply(): Int @noIo} = f1
                                                     ^
 newSource:86: error: type mismatch;
- found   : () => Int{def apply(): Int @scala.annotation.effects.rel(a.faa, a.foo) @scala.annotation.effects.noIo}
- required: () => Int{def apply(): Int @scala.annotation.effects.rel(a.foo)}
-    def tf2: (() => Int) {def apply(): Int @rel(a.foo)} = f1
-                                                          ^
+ found   : () => Int{def apply(): Int @scala.annotation.effects.pure(a.faa, a.foo) @scala.annotation.effects.noIo}
+ required: () => Int{def apply(): Int @scala.annotation.effects.pure(a.foo)}
+    def tf2: (() => Int) {def apply(): Int @pure(a.foo)} = f1
+                                                           ^
 newSource:87: error: type mismatch;
- found   : () => Int{def apply(): Int @scala.annotation.effects.rel(a.faa, a.foo) @scala.annotation.effects.noIo}
- required: () => Int{def apply(): Int @scala.annotation.effects.rel}
-    def tf3: (() => Int) {def apply(): Int @rel()} = f1
-                                                     ^
+ found   : () => Int{def apply(): Int @scala.annotation.effects.pure(a.faa, a.foo) @scala.annotation.effects.noIo}
+ required: () => Int{def apply(): Int @scala.annotation.effects.pure}
+    def tf3: (() => Int) {def apply(): Int @pure()} = f1
+                                                      ^
 newSource:90: error: type mismatch;
- found   : AnyRef{def t: Int @scala.annotation.effects.rel(a.foo)}
- required: AnyRef{def t: Int @scala.annotation.effects.rel(a.faa)}
-    def to3: { def t: Int @rel(a.faa) } = o1
-                                          ^
+ found   : AnyRef{def t: Int @scala.annotation.effects.pure(a.foo)}
+ required: AnyRef{def t: Int @scala.annotation.effects.pure(a.faa)}
+    def to3: { def t: Int @pure(a.faa) } = o1
+                                           ^
 newSource:91: error: type mismatch;
- found   : AnyRef{def t: Int @scala.annotation.effects.rel(a.foo)}
- required: AnyRef{def t: Int @scala.annotation.effects.rel}
-    def to4: { def t: Int @rel() } = o1
-                                     ^
+ found   : AnyRef{def t: Int @scala.annotation.effects.pure(a.foo)}
+ required: AnyRef{def t: Int @scala.annotation.effects.pure}
+    def to4: { def t: Int @pure() } = o1
+                                      ^
 newSource:103: error: not found: value hm
     def tm1: Int @noIo = hm(aPure)
                          ^

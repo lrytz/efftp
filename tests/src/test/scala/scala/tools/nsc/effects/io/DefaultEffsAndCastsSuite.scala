@@ -43,17 +43,17 @@ class DefaultEffsAndCastsSuite extends FunSuite {
     val t2 = new { def t: Int @pure = 0 }
     val t3 = new { def t: Int @io = 0 }
 
-    assert( isSubtype[{def t: Int @rel()}](t1))
-    assert( isSubtype[{def t: Int @rel()}](t2))
-    assert(!isSubtype[{def t: Int @rel()}](t3))
+    assert( isSubtype[{def t: Int @pure()}](t1))
+    assert( isSubtype[{def t: Int @pure()}](t2))
+    assert(!isSubtype[{def t: Int @pure()}](t3))
 
-    assert( isSubtype[{def t: Int @rel() @noIo}](t1))
-    assert( isSubtype[{def t: Int @rel() @noIo}](t2))
-    assert(!isSubtype[{def t: Int @rel() @noIo}](t3))
+    assert( isSubtype[{def t: Int @pure() @noIo}](t1))
+    assert( isSubtype[{def t: Int @pure() @noIo}](t2))
+    assert(!isSubtype[{def t: Int @pure() @noIo}](t3))
 
-    assert(isSubtype[{def t: Int @rel() @io}](t1))
-    assert(isSubtype[{def t: Int @rel() @io}](t2))
-    assert(isSubtype[{def t: Int @rel() @io}](t3))
+    assert(isSubtype[{def t: Int @pure() @io}](t1))
+    assert(isSubtype[{def t: Int @pure() @io}](t2))
+    assert(isSubtype[{def t: Int @pure() @io}](t3))
   }
 
 

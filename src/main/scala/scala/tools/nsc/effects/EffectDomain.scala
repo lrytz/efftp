@@ -31,8 +31,8 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects wi
    * Read the effect from a list of annotations. If no effect annotation for this domain
    * can be found, this method should return the `default` effect.
    *
-   * This method does not need to handle `@pure` or `@rel` annotations: this is already
-   * done by `fromAnnotations`.
+   * This method does not need to handle `@pure` annotations: this is already done by
+   * `fromAnnotations`.
    */
   def parseAnnotationInfos(annots: List[AnnotationInfo], default: => Effect): Effect
 
@@ -46,7 +46,7 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects wi
    * The effect represented by the annotations on the (return type of the potential method type) `tpe`.
    *
    * If there is no effect annotation for the specific domain, the default effect is used:
-   *  - `bottom` if there is a `@pure` or a `@rel(...)` annotation
+   *  - `bottom` if there is a `@pure` annotation
    *  - `top` otherwise
    */
   final def fromAnnotation(tpe: Type): Effect = fromAnnotationList(tpe.finalResultType.annotations)
@@ -55,11 +55,8 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects wi
    * The effect represented by `annotations`
    */
   final def fromAnnotationList(annots: List[AnnotationInfo]) = {
-    val hasPureOrRel = annots.exists(ann => {
-      val sym = ann.atp.typeSymbol
-      sym == pureClass || sym == relClass
-    })
-    val default = if (hasPureOrRel) effectForPureAnnotated else top
+    val hasPure = annots.exists(_.atp.typeSymbol == pureClass)
+    val default = if (hasPure) effectForPureAnnotated else top
     parseAnnotationInfos(annots, default)
   }
 
@@ -72,7 +69,7 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects wi
 
   final lazy val pureClass = rootMirror.getClassByName(newTypeName("scala.annotation.effects.pure"))
 
-  final lazy val allEffectAnnots = pureClass :: relClass :: annotationClasses
+  final lazy val allEffectAnnots = pureClass :: annotationClasses
 
   /**
    * The effect that is assigned to getters and setters. This method can be overridden

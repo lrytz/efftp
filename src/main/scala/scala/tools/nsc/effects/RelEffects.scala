@@ -3,7 +3,6 @@ package scala.tools.nsc.effects
 trait RelEffects { self: EffectDomain =>
   import global._
 
-  lazy val relClass = rootMirror.getClassByName(newTypeName("scala.annotation.effects.rel"))
   lazy val percent = {
     val effPackage = rootMirror.getModuleByName(newTermName("scala.annotation.effects"))
     definitions.getMember(effPackage, newTermName("%").encode)
@@ -14,7 +13,7 @@ trait RelEffects { self: EffectDomain =>
    * @TODO: document difference to the method relFromAnnotation
    *
    * The relative effect of a method is defined as follows:
-   *  - If the method has an explicit return type, the @rel annotations on the return type (if
+   *  - If the method has an explicit return type, the @pure annotations on the return type (if
    *    there are none, the method doesn't have a relative effect)
    *  - If the return type of the method is inferred, the relative effect is that of the next
    *    enclosing method.
@@ -117,7 +116,7 @@ trait RelEffects { self: EffectDomain =>
    * What happens in this case: the body tree of `foo` will only be type-checked during the typer phase.
    * Typing `fooBody` is still the same as before, up to the call to `relEffects`: now the inner `barSym`
    * has a lazy type (we're computing its type / effect) BUT the enclosing `fooSym` has a given type. So
-   * `relEffects` will return the `@rel` annotations that are found on `fooSym` (which are none in the exmaple).
+   * `relEffects` will return the `@pure` annotations that are found on `fooSym` (which are none in the exmaple).
    *
    * ------------------
    *
@@ -134,14 +133,14 @@ trait RelEffects { self: EffectDomain =>
    *
    * ------------------
    *
-   * If we want to change the second assumption, i.e. infer effects when there is an explicit returnt type, a
+   * If we want to change the second assumption, i.e. infer effects when there is an explicit return type, a
    * type-check of a body is triggered even if there's an explicit return type. Before that (in pluginsTypeSig),
    * we have the possibility to add an attachment to the outer method symbol and provide some information which
    * could be extracted here. So we could recognize these symbols here and maybe handle them differently.
    *
-   *   def foo: Int @infer @rel(x) = { ... }
+   *   def foo: Int @infer @pure(x) = { ... }
    *
-   * Would trigger effect inference. But before, that, we could assign attach the `@rel` effect to `fooSym`. Then
+   * Would trigger effect inference. But before, that, we could assign attach the `@pure` effect to `fooSym`. Then
    * we could still use the annotated relative effect, even thought the `fooSym` still has a lazy type.
    *
    * ------------------
@@ -168,14 +167,14 @@ trait RelEffects { self: EffectDomain =>
   }
 
   def relFromAnnotationList(annots: List[AnnotationInfo]): List[RelEffect] = {
-    val relAnnots = annots.filter(_.atp.typeSymbol == relClass)
-    (List[RelEffect]() /: relAnnots)((eff, annot) =>
+    val pureAnnots = annots.filter(_.atp.typeSymbol == pureClass)
+    (List[RelEffect]() /: pureAnnots)((eff, annot) =>
       joinRel(eff, readRelAnnot(annot))
     )
   }
 
   /**
-   * Convert a @rel annotation (which might have multiple arguments) to a list of RelEffects
+   * Convert a @pure annotation (which might have multiple arguments) to a list of RelEffects
    */
   private def readRelAnnot(relAnn: AnnotationInfo): List[RelEffect] = {
     def paramFun(tree: Tree): (Loc, Option[Symbol]) = tree match {
@@ -192,7 +191,7 @@ trait RelEffects { self: EffectDomain =>
       case t @ This(_) =>
         (ThisLoc(t.symbol), None)
       case _ =>
-        abort("unexpected tree in @rel annotation: "+ tree)
+        abort("unexpected tree in @pure annotation: "+ tree)
     }
     relAnn.args.map(arg => {
       val (param, fun) = paramFun(arg)
@@ -224,7 +223,7 @@ trait RelEffects { self: EffectDomain =>
       //
       // in 2.11, replace `atPhase(currentRun.typerPhase.next)` by `exitingPhase(currentRun.typerPhase)`
       val typedArgs = atPhase(currentRun.typerPhase.next){ args map (typer.typed(_)) }
-      List(AnnotationInfo(relClass.tpe, typedArgs, List()))
+      List(AnnotationInfo(pureClass.tpe, typedArgs, List()))
     }
   }
 

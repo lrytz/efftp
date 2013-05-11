@@ -7,10 +7,10 @@ object t {
   def t3: Int @pure = foo(x => x + 1)
   def t4: Int @pure = bar(new MApp())
 
-  def foo(f: Int => Int): Int @rel(f) = f(f(0))
-  def bar(m: MApp): Int @rel(m) = m.apply(10) + m.apply(10,20)
+  def foo(f: Int => Int): Int @pure(f) = f(f(0))
+  def bar(m: MApp): Int @pure(m) = m.apply(10) + m.apply(10,20)
   
-  def t5(x: => Int): Int @rel(x) = {
+  def t5(x: => Int): Int @pure(x) = {
     if (true) 10
     else x
   }
@@ -22,7 +22,7 @@ class C {
   // top effect
   def bap(): Unit = ()
 
-  def likeBap(): Unit @rel(this.bap()) = {
+  def likeBap(): Unit @pure(this.bap()) = {
     this.bap()
   }
 }
@@ -32,7 +32,7 @@ class D extends C {
 }
 
 class C1(x: => Int) {
-  @rel(x) type constructorEffect
+  @pure(x) type constructorEffect
   val uuh = x
   def foos() = x   // has effect
   lazy val y = x   // has effect.. see relEffectsNeg
