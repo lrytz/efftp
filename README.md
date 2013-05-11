@@ -1,6 +1,6 @@
 # Effects Plugin for Scala
 
-This repo has the source of a Scala compiler plugin for effect checking. For documentation
+This repo holds the source of a Scala compiler plugin for effect checking. For documentation
 refer to the [Wiki on Gihub](https://github.com/lrytz/efftp/wiki).
 
 ## Scala Version
