@@ -1,6 +1,6 @@
 # Effects Plugin for Scala
 
-This repo has the source of a Scala compiler plugin for effect checking. For documentation
+This repo holds the source of a Scala compiler plugin for effect checking. For documentation
 refer to the [Wiki on Gihub](https://github.com/lrytz/efftp/wiki).
 
 ## Scala Version
@@ -49,3 +49,9 @@ T.scala:24: error: effect type mismatch;
                                     ^
 three errors found
 ```
+
+
+## More Examples
+
+Have a look at the [tests](https://github.com/lrytz/efftp/tree/master/tests/src/test/resources/scala/tools/nsc/effects).
+The most enlightening test is probably [the one on collections](https://github.com/lrytz/efftp/blob/master/tests/src/test/resources/scala/tools/nsc/effects/multi/Colls-files/colls.scala).
