@@ -1,0 +1,10 @@
+newSource:9: error: effect type mismatch;
+ found   : @io
+ required: @noIo
+    (no: @io)
+          ^
+newSource:14: error: effect type mismatch;
+ found   : @io
+ required: @noIo
+    (yo: @noIo)
+     ^

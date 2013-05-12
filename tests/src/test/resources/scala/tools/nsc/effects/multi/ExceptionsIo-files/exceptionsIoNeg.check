@@ -51,11 +51,11 @@ newSource:43: error: effect type mismatch;
  found   : @throws[Throwable] @noIo
  required: @throws[Nothing] @noIo
 @throws[Throwable] does not conform to @throws[Nothing]
-    (f(): @noIo)
-           ^
+    (f(): @unchecked @noIo)
+                      ^
 newSource:50: error: effect type mismatch;
  found   : @throws[Throwable] @noIo
  required: @throws[Nothing] @noIo
 @throws[Throwable] does not conform to @throws[Nothing]
-    }: @noIo
-        ^
+    }: @unchecked @noIo
+                   ^

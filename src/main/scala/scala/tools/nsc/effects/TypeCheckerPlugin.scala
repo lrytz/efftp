@@ -211,7 +211,26 @@ trait TypeCheckerPlugin extends TypeUtils { // self: EffectChecker =>
       case tt @ TypeTree() => tt.wasEmpty
       case _ => false
     })
+    
+    def expectedIfNotUnchecked(annots: List[AnnotationInfo]): Option[Effect] = {
+      if (hasUncheckedAnnotation(annots) && existsEffectAnnotation(annots)) {
+        None
+      } else {
+        Some(fromAnnotationList(annots))
+      }
+    }
 
+    def constructorEffectAnnotations(constrSym: Symbol, typeDefAnnots: List[AnnotationInfo]): List[AnnotationInfo] = {
+      val annotatedSym = if (constrSym.isPrimaryConstructor) {
+        val clazz = constrSym.owner
+        if (clazz.isModuleClass) clazz.sourceModule else clazz
+      } else constrSym
+      val symAnnots = annotatedSym.annotations
+      if (existsEffectAnnotation(symAnnots))
+        symAnnots
+      else
+        typeDefAnnots
+    }
 
     /**
      * Returns the annotated effect of a constructor, if an effect annotation exists.
@@ -220,16 +239,9 @@ trait TypeCheckerPlugin extends TypeUtils { // self: EffectChecker =>
      * are annotated on the constructor symbol
      */
     def annotatedConstrEffect(constrSym: Symbol, typeDefAnnots: List[AnnotationInfo]): Option[(Effect, List[RelEffect])] = {
-      val annotatedSym = if (constrSym.isPrimaryConstructor) {
-        val clazz = constrSym.owner
-        if (clazz.isModuleClass) clazz.sourceModule else clazz
-      } else constrSym
-      val symAnnots = annotatedSym.annotations
-
-      if (existsEffectAnnotation(symAnnots))
-        Some((fromAnnotationList(symAnnots), relFromAnnotationList(symAnnots)))
-      else if (existsEffectAnnotation(typeDefAnnots))
-        Some(fromAnnotationList(typeDefAnnots), relFromAnnotationList(typeDefAnnots))
+      val annots = constructorEffectAnnotations(constrSym, typeDefAnnots)
+      if (existsEffectAnnotation(annots))
+        Some(fromAnnotationList(annots), relFromAnnotationList(annots))
       else
         None
     }
@@ -277,7 +289,7 @@ trait TypeCheckerPlugin extends TypeUtils { // self: EffectChecker =>
           }
 
         case None => constrDef.rhs match {
-          case DefDef(_, _, _, _, _, Block((td @ TypeDef(_, ConstrEffTypeDefName, _, _)) :: _, _)) =>
+          case Block(thisCall :: (td @ TypeDef(_, ConstrEffTypeDefName, _, _)) :: _, _) =>
             if (!alreadyTyped) {
               typer.namer.enterSym(td)
             }
@@ -811,13 +823,16 @@ trait TypeCheckerPlugin extends TypeUtils { // self: EffectChecker =>
                 None // primary constr effes are handled separately, see case ClassDef/ModuleDef below
               } else if (meth.isConstructor) {
                 val typeDefAnnots = constrEffTypeDefAnnots(ddef, None, typer, alreadyTyped = true)
+                val annots = constructorEffectAnnotations(meth, typeDefAnnots)
                 // we use `annotatedConstrEffect` to test if the constructor ahs an annotated effect.
                 // if that's the case, we read the expected effect from the constructor's return type.
-                annotatedConstrEffect(meth, typeDefAnnots).map(_ => fromAnnotation(meth.tpe))
-              } else if (!tpt.wasEmpty)
-                Some(fromAnnotation(meth.tpe))
-              else
+                expectedIfNotUnchecked(annots).map(_ => fromAnnotation(meth.tpe))
+              } else if (!tpt.wasEmpty) {
+                val annots = meth.tpe.finalResultType.annotations
+                expectedIfNotUnchecked(annots)
+              } else {
                 None
+              }
             }
 
             expectedEffect foreach (annotEff => {
@@ -839,7 +854,8 @@ trait TypeCheckerPlugin extends TypeUtils { // self: EffectChecker =>
                 val (_, templTyper) = templates.get(constrSym.owner)
                 val constrDefTyper = analyzer.newTyper(templTyper.context.makeNewScope(constrDef, constrSym))
                 val typeDefAnnots = constrEffTypeDefAnnots(constrDef, Some(templ), templTyper, alreadyTyped = true)
-                for (annotEff <- annotatedConstrEffect(constrSym, typeDefAnnots)) {
+                val annots = constructorEffectAnnotations(constrSym, typeDefAnnots)
+                for (_ <- expectedIfNotUnchecked(annots)) {
                   // as expected effect we use the one on the return type of the constructor, not the one on the
                   // constructor symbol or the typeDef
                   val expected = Some(adaptExpectedMethodEffect(constrSym, fromAnnotation(constrSym.tpe)))

@@ -15,6 +15,6 @@ object t {
       ()
     case c: MCons[T] =>
       // needs effect cast because variable c has locality c, we don't support pattern bindings yet.
-      (c: @loc(l)).x = newHead
+      (c: @unchecked @loc(l)).x = newHead
   }
 }

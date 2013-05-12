@@ -10,9 +10,9 @@ import annotation.effects._
  * ******** */
 
 object ioPrimitives {
-  def show(a: Any): Unit @pure @io = {
-    // inner cast required due to ANF transform
-    println(a.toString: @pure): @pure @io
+  // cast (@unchecked) required for `println`
+  def show(a: Any): Unit @unchecked @pure(a.toString()) @io = {
+    println(a.toString)
   }
 }
 
@@ -41,7 +41,7 @@ trait Optn[+A] {
   def isEmpty: Boolean @pure
 
   def getOrElse[B >: A](default: => B): B @pure(default) =
-    if (isEmpty) default else (get: @pure) // effect cast
+    if (isEmpty) default else (get: @unchecked @pure) // effect cast
 
   def get: A @pure @throws[NoSuchElem]
 }
@@ -182,7 +182,7 @@ trait Itor[+A] {
   def next(): A @pure @mod(this) @throws[NoSuchElem]
   def isEmpty: Boolean @pure = !hasNext
   def foreach[U](f: A => U): Unit @mod(this) @pure(f) = {
-    while (hasNext) f(next(): @pure @mod(this)) // effect cast for call to `next`
+    while (hasNext) f(next(): @unchecked @pure @mod(this)) // effect cast for call to `next`
     ()
   }
 }
@@ -290,7 +290,7 @@ sealed abstract class Lst[+A] extends Sq[A] with GenTravTmpl[A, Lst] with SqLk[A
 
   def length: Int @pure = {
     if (isEmpty) 0
-    else 1 + (tail: @pure).length // effect cast for `@throws[NoSuchElem]` of `tail`
+    else 1 + (tail: @unchecked @pure).length // effect cast for `@throws[NoSuchElem]` of `tail`
   }
 
   override def companion: GenCpn[Lst] @pure = Lst
@@ -314,7 +314,7 @@ object Lst extends SqFct[Lst] {
 
    def apply[A](elems: A*): Lst[A] @pure = {
      // cast because it uses the scala.Seq
-     elems.foldRight(nl: Lst[A])((a, res) => cns(a, res)): @pure
+     elems.foldRight(nl: Lst[A])((a, res) => cns(a, res)): @unchecked @pure
    }
 
   def newBuilder[A]: Bldr[A, Lst[A]] @pure @loc() = new LstBldr[A]

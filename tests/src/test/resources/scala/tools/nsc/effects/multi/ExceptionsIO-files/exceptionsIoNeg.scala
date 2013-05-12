@@ -40,13 +40,13 @@ class C {
   }
 
   def f7: Unit @pure = {
-    (f(): @noIo)
+    (f(): @unchecked @noIo)
   }
 
   def f8: Unit @pure = {
     {
       throw new E1
       f()
-    }: @noIo
+    }: @unchecked @noIo
   }
 }

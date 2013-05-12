@@ -151,20 +151,41 @@ trait Infer { self: EffectDomain =>
    * is defined. Instead of overriding this methods, effect domains should override `computeEffectImpl`.
    */
   final def computeEffect(tree: Tree, ctx: EffectContext): Effect = {
-    def collectAnnots(typed: Typed): List[AnnotationInfo] ={
-      typed.tpt.tpe.annotations ::: (typed.expr match {
-        case typed1: Typed => collectAnnots(typed1)
-        case _ => Nil
-      })
+    
+    def collectAnnots(typed: Typed): (List[AnnotationInfo], Tree) = {
+      val annots = typed.tpt.tpe.annotations
+      typed.expr match {
+        case typed1: Typed =>
+          val (restAnnots, expr) = collectAnnots(typed1)
+          (annots ::: restAnnots, expr)
+        case expr =>
+          (annots, expr)
+      }
     }
 
     if (tree.isErroneous) bottom
     else {
 
       val e = tree match {
-        /*** Type Ascriptions: if they contain effect annotations, they are treated as effect casts ***/
-        case typed: Typed if existsEffectAnnotation(collectAnnots(typed)) =>
-          fromAnnotationList(collectAnnots(typed))
+        /* Type ascriptions containing effect annotations AND the `@unchecked` annotations are effect casts,
+         * the ascripted tree is not effect-checked.
+         * 
+         * Type ascriptions with effect annotations, but without `@unchecked` are effect ascriptions. They
+         * change the expected effect, which allows users to check the effect of a subtree.
+         */
+        case typed: Typed =>
+          val (annots, expr) = collectAnnots(typed)
+          val hasEffAnnots = existsEffectAnnotation(annots)
+          if (hasUncheckedAnnotation(annots) && hasEffAnnots) {
+            fromAnnotationList(annots)
+          } else if (hasEffAnnots) {
+            val newExpected = fromAnnotationList(annots)
+            val newExpOpt = Some(newExpected) // or rather ctx.expected.map(_ => newExpected) ?
+            computeEffectImpl(tree, ctx.copy(expected = newExpOpt))
+            newExpected
+          } else {
+            computeEffectImpl(tree, ctx)
+          }
 
         case _ =>
           computeEffectImpl(tree, ctx)

@@ -33,21 +33,21 @@ class C {
   
   
   def f7: Unit @pure = {
-    (f(): @pure)
+    (f(): @unchecked @pure)
   }
 
   def f8a: Unit @pure @throws[E1] = {
     {
       throw new E1
       f()
-    }: @noIo @throws[E1]
+    }: @unchecked @noIo @throws[E1]
   }
 
   def f8b: Unit @pure @throws[E1] = {
     {
       throw new E1
       f()
-    }: Unit @noIo @throws[E1]
+    }: Unit @unchecked @noIo @throws[E1]
   }
 
   def f9a[B](default: () => B): B @pure(default.apply()) = 

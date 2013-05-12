@@ -66,6 +66,10 @@ abstract class EffectDomain extends Infer with RelEffects with DefaultEffects wi
   final def existsEffectAnnotation(annotations: List[AnnotationInfo]) = {
     annotations.exists(ann => allEffectAnnots.contains(ann.atp.typeSymbol))
   }
+  
+  final def hasUncheckedAnnotation(annotations: List[AnnotationInfo]) = {
+    annotations.exists(ann => ann.atp.typeSymbol == definitions.UncheckedClass)
+  }
 
   final lazy val pureClass = rootMirror.getClassByName(newTypeName("scala.annotation.effects.pure"))
 
