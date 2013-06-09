@@ -14,6 +14,8 @@ object ioPrimitives {
   def show(a: Any): Unit @unchecked @pure(a.toString()) @io = {
     println(a.toString)
   }
+  
+  def doIo(): Unit @io = ()
 }
 
 import ioPrimitives._
@@ -74,6 +76,32 @@ trait CBF[-From, -Elem, +To] {
 
 
 
+/* ****** *
+ * Breaks
+ * ****** */
+
+object Breaks {
+  def breakable(op: => Unit): Unit @unchecked @pure(op) = {
+    try {
+      op
+    } catch {
+      case ex: BreakControl =>
+        if (ex ne breakException) throw ex
+    }
+  }
+
+  def break(): Nothing @unchecked @pure = { throw breakException }
+
+  private class BreakControl extends Exception
+  private val breakException = new BreakControl
+
+}
+
+import Breaks._
+
+
+
+
 /* *************** *
  * TraversableLike *
  * *************** */
@@ -87,13 +115,12 @@ trait TravLk[+A, +Repr] { self: Repr =>
 
   def isEmpty: Boolean @pure = {
     var result = true
-//  cannot annotate masking behavior, need built-in support for `breakable` (and other library tools like `Try`)
-//  breakable {
+    breakable {
       for (x <- this) {
         result = false
-//      break
+        break
       }
-//  }
+    }
     result
   }
 
@@ -108,12 +135,31 @@ trait TravLk[+A, +Repr] { self: Repr =>
   }
 
   def head: A @pure @throws[NoSuchElem] = {
+    type ResFunTp = (() => A) {
+      def apply(): A @pure @throws[NoSuchElem]
+    }
+    var result: ResFunTp = () => throw new NoSuchElem("head of empty traversable")
+
+    breakable {
+      for (x <- this) {
+        result = () => x
+        break
+      }
+    }
+
+    result()
+  }
+
+/* Alternative implementation of head.
+
+  def head: A @pure @throws[NoSuchElem] = {
     var result: Optn[A] = Non
     for (x <- this) {
       if (result.isEmpty) result = Som(x)
     }
     result.getOrElse(throw new NoSuchElem("head of empty traversable"))
   }
+*/
 
   def tail: Repr @pure @throws[NoSuchElem] = {
     if (isEmpty) throw new NoSuchElem("tail of empty traversable")
@@ -340,4 +386,3 @@ class LstBldr[A] extends Bldr[A, Lst[A]] {
 
   def result(): Lst[A] @pure = b
 }
-
