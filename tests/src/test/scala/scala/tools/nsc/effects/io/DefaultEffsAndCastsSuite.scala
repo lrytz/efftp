@@ -60,6 +60,6 @@ class DefaultEffsAndCastsSuite extends FunSuite {
   // test effect casts
   def foo(xs: Int*): Int @pure = {
     val x = 1
-    (x /: xs)(_ + _): @pure
+    (x /: xs)(_ + _): @unchecked @pure
   }
 }
