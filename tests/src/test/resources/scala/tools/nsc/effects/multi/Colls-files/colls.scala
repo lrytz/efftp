@@ -178,6 +178,13 @@ trait TravLk[+A, +Repr] { self: Repr =>
     for (x <- this) b += f(x)
     b.result()
   }
+
+  def contains(e: Any): Boolean @pure = {
+    var r = false
+    for (x <- this)
+      if (e == x) r = true
+    r
+  }
 }
 
 

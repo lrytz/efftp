@@ -11,6 +11,7 @@ trait DefaultEffects { self: EffectDomain =>
     d.ObjectClass,
     d.StringClass,
     d.AnyRefClass,
+    d.AnyClass,
     m.requiredClass[scala.Product],
     m.requiredClass[scala.Equals],
     d.SerializableClass
